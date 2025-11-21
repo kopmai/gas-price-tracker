@@ -6,11 +6,11 @@ from openai import OpenAI
 from datetime import datetime, timedelta
 
 # --- 0. API KEY ---
-# ลองดึงจาก Secrets ของระบบก่อน (สำหรับตอน Deploy)
+# ใส่ Key ของคุณ หรือใช้ st.secrets
 if "GROQ_API_KEY" in st.secrets:
     GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 else:
-    GROQ_API_KEY = "" # ถ้าไม่มี ให้ไปรอรับจาก Sidebar หรือปล่อยว่าง
+    
 
 # --- 1. ตั้งค่าหน้าเว็บ ---
 st.set_page_config(
@@ -20,7 +20,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed" 
 )
 
-# --- CSS ปรับแต่ง (Dashboard Mode: Lock Screen) ---
+# --- CSS ปรับแต่ง (Dashboard Mode) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap');
@@ -28,7 +28,7 @@ st.markdown("""
     html, body, [class*="css"] {
         font-family: 'Prompt', sans-serif;
         color: #333; 
-        overflow: hidden; /* 🔒 ล็อกหน้าจอหลักห้ามเลื่อน */
+        overflow: hidden; /* 🔒 Lock Screen */
     }
     .stApp { background-color: #ffffff; }
 
@@ -37,9 +37,21 @@ st.markdown("""
         position: fixed; top: 0; left: 0; width: 100%; height: 60px;
         background-color: #ffffff; border-bottom: 1px solid #dadce0;
         z-index: 99999; display: flex; align-items: center;
-        padding-left: 80px; font-size: 20px; font-weight: 600; color: #1f1f1f;
+        padding-left: 80px; padding-right: 20px;
+        font-size: 20px; font-weight: 600; color: #1f1f1f;
+        justify-content: space-between; /* จัดให้วันที่ชิดขวา */
     }
     
+    /* วันที่ใน Top Bar */
+    .date-badge {
+        font-size: 14px;
+        color: #5f6368;
+        background-color: #f1f3f4;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-weight: 400;
+    }
+
     .main .block-container { 
         padding-top: 70px !important; 
         padding-bottom: 0 !important;
@@ -48,15 +60,13 @@ st.markdown("""
         max-width: 100% !important;
     }
 
-    /* ซ้าย: Dashboard (Fixed) */
+    /* Layout Columns */
     div[data-testid="column"]:nth-of-type(1) {
         height: calc(100vh - 80px);
         overflow: hidden; 
         padding-right: 15px;
         border-right: 1px solid #f0f0f0;
     }
-
-    /* ขวา: Chat (Scrollable) */
     div[data-testid="column"]:nth-of-type(2) {
         height: calc(100vh - 80px);
         overflow-y: auto;
@@ -72,33 +82,31 @@ st.markdown("""
     div[data-testid="stMetricLabel"] { font-size: 12px !important; }
     div[data-testid="stMetricValue"] { font-size: 16px !important; font-weight: 600; }
 
-    /* Chat Input */
     .stChatInput { padding-bottom: 10px; z-index: 100; }
-
     header[data-testid="stHeader"] { background: transparent; z-index: 100000; }
     header .decoration { display: none; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Top Bar ---
-st.markdown('<div class="gemini-bar"><span>⚡ Energy Price Tracker</span></div>', unsafe_allow_html=True)
-
 # --- Functions ---
 @st.cache_data(ttl=300)
 def get_data(ticker, period="1y"):
     try:
-        data = yf.download(ticker, period="max", progress=False)
+        data = yf.download(ticker, period="max", progress=False) # ดึง max เพื่อให้รองรับการเลือกวันที่ย้อนหลัง
         if data.empty: return None, "No Data"
         data.reset_index(inplace=True)
         if isinstance(data.columns, pd.MultiIndex):
             data.columns = data.columns.get_level_values(0)
         
+        # Filter for Graph (ตัดตาม period ที่เลือก)
         if period != "max":
             days_map = {"1mo":30, "3mo":90, "6mo":180, "1y":365, "5y":1825, "10y":3650}
             cutoff = datetime.now() - timedelta(days=days_map.get(period, 3650))
-            data = data[data['Date'] >= cutoff]
-        return data, None
-    except Exception: return None, "Error"
+            data_filtered = data[data['Date'] >= cutoff]
+            return data_filtered, None, data # คืนค่า (filtered, error, full_data)
+        
+        return data, None, data
+    except Exception: return None, "Error", None
 
 def get_ft_data(period_days=365):
     ft_history = [
@@ -117,11 +125,27 @@ def get_ft_data(period_days=365):
     df_daily = pd.DataFrame(date_range, columns=['Date'])
     df_merged = pd.merge_asof(df_daily, df_ft, on='Date', direction='backward')
     
+    # Return 2 versions: Filtered & Full
     today = datetime.now()
     start_date = today - timedelta(days=period_days)
-    df_final = df_merged[df_merged['Date'] >= start_date].copy()
-    df_final.rename(columns={'Ft': 'Close'}, inplace=True)
-    return df_final
+    df_filtered = df_merged[df_merged['Date'] >= start_date].copy()
+    df_filtered.rename(columns={'Ft': 'Close'}, inplace=True)
+    
+    df_full = df_merged.copy() # Full history for lookup
+    df_full.rename(columns={'Ft': 'Close'}, inplace=True)
+    
+    return df_filtered, df_full
+
+# Helper: Find closest date
+def get_price_at_date(df, target_date):
+    # Filter ข้อมูลที่วันที่ <= target_date
+    target_ts = pd.Timestamp(target_date)
+    past_data = df[df['Date'] <= target_ts]
+    
+    if not past_data.empty:
+        row = past_data.iloc[-1] # ตัวล่าสุดก่อนหน้าหรือตรงกัน
+        return row['Close'], row['Date']
+    return None, None
 
 assets_config = {
     "USD/THB":   {"type": "yahoo", "ticker": "THB=X", "unit": "Baht", "currency": "THB"},
@@ -135,75 +159,114 @@ st.sidebar.title("⚙️ Control")
 if not GROQ_API_KEY: api_key = st.sidebar.text_input("API Key", type="password")
 else: api_key = GROQ_API_KEY
 
+# [NEW] Date Picker
+st.sidebar.divider()
+st.sidebar.subheader("📅 Date Selection")
+target_date = st.sidebar.date_input("Select Date", value=datetime.now(), max_value=datetime.now())
+st.sidebar.caption("เลือกวันที่เพื่อดูราคาในอดีต")
+
+# Graph Timeframe
+st.sidebar.divider()
 period_map = {"1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "5y": 1825, "10y (Max)": 3650}
-selected_period_str = st.sidebar.selectbox("⏳ Timeframe", list(period_map.keys()), index=4)
+selected_period_str = st.sidebar.selectbox("⏳ Graph Timeframe", list(period_map.keys()), index=4)
 selected_days = period_map[selected_period_str]
+
 st.sidebar.divider()
 convert_to_thb = st.sidebar.toggle("🇹🇭 THB Convert", value=False)
 normalize_mode = st.sidebar.toggle("📏 Normalize (Max=1)", value=False)
 st.sidebar.divider()
 selected_assets = st.sidebar.multiselect("Compare:", list(assets_config.keys()), default=["Ft (Thai)", "JKM (LNG)"])
 
+# --- Logic for Date Display in Top Bar ---
+display_date_str = target_date.strftime("%d/%m/%Y")
+# Note: วันที่จริงที่ข้อมูลมีอาจไม่ตรงกับที่เลือก (เช่น เลือกวันอาทิตย์ ข้อมูลจะเป็นวันศุกร์)
+# เราจะอัปเดต text นี้อีกทีใน loop ข้างล่างถ้าจำเป็น
+
+# --- Top Bar ---
+st.markdown(f"""
+    <div class="gemini-bar">
+        <span>⚡ Energy Price Tracker</span>
+        <span class="date-badge">📅 Data as of: {display_date_str}</span>
+    </div>
+""", unsafe_allow_html=True)
+
 # --- Layout ---
 col_dash, col_chat = st.columns([7, 3])
 
 # === LEFT: Dashboard ===
 with col_dash:
-    # 1. Metrics & Data Calculation for AI
-    thb_df, _ = get_data("THB=X", period=selected_period_str)
+    # 1. Metrics (Based on Selected Date)
+    # Load Full Data for Lookup
+    _, _, thb_full = get_data("THB=X", "max")
+    
     cols_m = st.columns(len(assets_config))
-    data_summary_text = "ข้อมูลตลาดพลังงานล่าสุด (คำนวณเทียบอดีตให้แล้ว):\n" 
+    data_summary_text = f"ข้อมูลตลาดพลังงาน ณ วันที่ {display_date_str}:\n"
+    
+    # ตัวแปรเก็บวันที่จริงของข้อมูล (เอาไว้โชว์ถ้าเลือกวันหยุด)
+    actual_data_date = target_date
 
     for idx, (name, config) in enumerate(assets_config.items()):
-        # Fetch long history to calculate YoY/MoM
+        # Fetch Full Data for accurate lookup
         if config["type"] == "manual": 
-            df_full = get_ft_data(700) # 2 ปี
+            _, df_full = get_ft_data()
         else: 
-            df_full, _ = get_data(config["ticker"], "2y")
+            _, _, df_full = get_data(config["ticker"], "max")
         
         with cols_m[idx]:
+            price_today = None
+            
             if df_full is not None and not df_full.empty:
-                latest = df_full['Close'].iloc[-1]
-                price, unit = latest, config['unit']
+                # Find price at selected date
+                price_today, date_today = get_price_at_date(df_full, target_date)
                 
-                # แปลงค่าเงิน (เฉพาะ Metric)
-                if convert_to_thb and config['currency'] == 'USD' and thb_df is not None:
-                    price = latest * thb_df['Close'].iloc[-1]
-                    unit = "฿"
-                
-                # คำนวณเทียบเดือนก่อน/ปีก่อน
-                try:
-                    # Index -22 (ประมาณ 1 เดือน) และ -252 (ประมาณ 1 ปี)
-                    idx_1m = max(0, len(df_full) - 22)
-                    idx_1y = max(0, len(df_full) - 252)
-                    
-                    price_1m = df_full['Close'].iloc[idx_1m]
-                    price_1y = df_full['Close'].iloc[idx_1y]
-                    
-                    pct_1d = ((latest - df_full['Close'].iloc[-2]) / df_full['Close'].iloc[-2]) * 100
-                    mom = ((latest - price_1m) / price_1m) * 100
-                    yoy = ((latest - price_1y) / price_1y) * 100
-                    
-                    st.metric(name, f"{price:,.2f} {unit}", f"{pct_1d:.2f}%")
-                    
-                    # เก็บข้อมูลส่ง AI
-                    data_summary_text += f"- {name}: ราคาปัจจุบัน {latest:.2f} (MoM: {mom:+.1f}%, YoY: {yoy:+.1f}%)\n"
-                except:
-                    st.metric(name, f"{price:,.2f} {unit}", "-")
-            else: st.metric(name, "-", "-")
+                if price_today is not None:
+                    # Update actual date (เอาวันที่ล่าสุดที่เจอของสินทรัพย์แรกๆ มาเป็นตัวอ้างอิง)
+                    if idx == 0: actual_data_date = date_today
 
-    # 2. Graph
+                    # Calculate Change (Compare to previous trading day relative to selected date)
+                    # หา index ของวันนั้น
+                    try:
+                        idx_today = df_full[df_full['Date'] == date_today].index[0]
+                        prev_price = df_full.iloc[idx_today - 1]['Close'] if idx_today > 0 else price_today
+                        pct_change = ((price_today - prev_price) / prev_price) * 100
+                    except:
+                        pct_change = 0
+                    
+                    # Convert Currency
+                    unit = config['unit']
+                    if convert_to_thb and config['currency'] == 'USD' and thb_full is not None:
+                        rate, _ = get_price_at_date(thb_full, date_today)
+                        if rate:
+                            price_today = price_today * rate
+                            unit = "฿"
+                    
+                    st.metric(name, f"{price_today:,.2f} {unit}", f"{pct_change:+.2f}%")
+                    data_summary_text += f"- {name}: {price_today:,.2f} {unit}\n"
+                else:
+                    st.metric(name, "No Data", "-")
+            else:
+                st.metric(name, "-", "-")
+    
+    # Update Top Bar Date Text (Javascript Injection to update date if it was a weekend)
+    # (Optional: for simplicity, we keep showing user selected date, but Metric shows real values)
+    
+    # 2. Graph (Shows Range)
     if selected_assets:
         combined_df = pd.DataFrame()
         for asset_name in selected_assets:
             config = assets_config[asset_name]
-            if config["type"] == "manual": df_trend = get_ft_data(selected_days)
-            else: df_trend, _ = get_data(config["ticker"], selected_period_str)
+            # Fetch graph data based on selected timeframe (Sidebar)
+            if config["type"] == "manual": 
+                df_trend, _ = get_ft_data(selected_days)
+            else: 
+                df_trend, _, _ = get_data(config["ticker"], selected_period_str)
             
             if df_trend is not None:
                 temp_df = df_trend[['Date', 'Close']].copy()
-                if convert_to_thb and config['currency'] == 'USD' and thb_df is not None:
-                    merged = pd.merge(temp_df, thb_df[['Date', 'Close']], on='Date', how='inner', suffixes=('', '_Rate'))
+                
+                # Convert Logic
+                if convert_to_thb and config['currency'] == 'USD' and thb_full is not None:
+                    merged = pd.merge(temp_df, thb_full[['Date', 'Close']], on='Date', how='inner', suffixes=('', '_Rate'))
                     temp_df['Close'] = merged['Close'] * merged['Close_Rate']
                 
                 asset_label = asset_name
@@ -219,6 +282,11 @@ with col_dash:
         if not combined_df.empty:
             y_title = "Norm (Max=1)" if normalize_mode else "Price"
             fig = px.line(combined_df, x='Date', y='Close', color='Asset', template="plotly_white")
+            
+            # Add Vertical Line for Selected Date
+            fig.add_vline(x=datetime.timestamp(datetime.combine(target_date, datetime.min.time())) * 1000, 
+                          line_width=2, line_dash="dash", line_color="red", annotation_text="Selected Date")
+
             fig.update_layout(
                 xaxis_title=None, yaxis_title=y_title, legend_title=None,
                 hovermode="x unified", height=600, 
@@ -228,34 +296,26 @@ with col_dash:
             st.plotly_chart(fig, use_container_width=True)
     else: st.info("Select assets")
 
-# === RIGHT: Chat (Auto Analysis) ===
+# === RIGHT: Chat ===
 with col_chat:
     st.markdown("##### 💬 AI Analyst")
     
     if "messages" not in st.session_state: 
         st.session_state.messages = []
-        # [AUTO ANALYSIS]
         if api_key:
             try:
-                # Prompt สั่งให้เปรียบเทียบ MoM, YoY ชัดเจน
                 initial_prompt = f"""
-                คุณคือนักวิเคราะห์พลังงาน
-                ข้อมูลล่าสุด (คำนวณมาให้แล้ว):
+                วิเคราะห์ตลาดพลังงาน ณ วันที่ {target_date.strftime('%d/%m/%Y')}
+                จากข้อมูลนี้:
                 {data_summary_text}
-                
-                ข้อกำหนด:
-                1. Ft คือ 'ค่าไฟฟ้าผันแปร (Variable Electricity Tariff)' ของไทย
-                2. วิเคราะห์สั้นๆ 3-4 บรรทัด โดยเน้นเปรียบเทียบกับเดือนที่แล้ว (MoM) และปีที่แล้ว (YoY)
-                3. มองแนวโน้มผลกระทบต่อค่าไฟไทย
+                เน้นเปรียบเทียบกับอดีตและแนวโน้ม
                 """
-                
                 client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=api_key)
                 completion = client.chat.completions.create(
                     model="llama-3.1-8b-instant",
                     messages=[{"role": "user", "content": initial_prompt}]
                 )
-                ai_summary = completion.choices[0].message.content
-                st.session_state.messages.append({"role": "assistant", "content": f"**📊 Market Brief (MoM/YoY Analysis):**\n{ai_summary}"})
+                st.session_state.messages.append({"role": "assistant", "content": f"**📅 Analysis for {target_date.strftime('%d/%m/%Y')}:**\n{completion.choices[0].message.content}"})
             except: pass
 
     for msg in st.session_state.messages:
@@ -275,7 +335,7 @@ with col_chat:
                 stream = client.chat.completions.create(
                     model="llama-3.1-8b-instant", 
                     messages=[
-                        {"role": "system", "content": "You are an energy analyst. Note: Ft = Variable Electricity Tariff (ค่าไฟฟ้าผันแปร). Answer in Thai."},
+                        {"role": "system", "content": "Energy analyst. Answer in Thai."},
                         *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
                     ], stream=True
                 )
