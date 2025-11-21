@@ -16,7 +16,6 @@ st.markdown("""
     html, body, [class*="css"] { font-family: 'Prompt', sans-serif; color: #333; overflow: hidden; }
     .stApp { background-color: #ffffff; }
     
-    /* Top Bar */
     .gemini-bar {
         position: fixed; top: 0; left: 0; width: 100%; height: 60px;
         background: white; border-bottom: 1px solid #dadce0; z-index: 99999;
@@ -25,7 +24,6 @@ st.markdown("""
     }
     .date-badge { font-size: 14px; color: #5f6368; background: #f1f3f4; padding: 4px 12px; border-radius: 20px; font-weight: 400; }
 
-    /* Sidebar Button Replacement (Gear Icon) */
     [data-testid="stSidebarCollapsedControl"] {
         z-index: 100000 !important; background-color: white; border-radius: 50%; width: 40px; height: 40px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid #eee; top: 10px !important; left: 15px !important;
@@ -35,17 +33,14 @@ st.markdown("""
     [data-testid="stSidebarCollapsedControl"]::after { content: "⚙️"; font-size: 22px; margin-bottom: 3px; }
     [data-testid="stSidebarCollapsedControl"]:hover { transform: rotate(45deg); transition: transform 0.3s ease; background-color: #f1f3f4; }
 
-    /* Responsive */
     @media (max-width: 600px) {
         .gemini-bar { padding: 5px 10px 5px 65px; flex-direction: column; align-items: flex-start; justify-content: center; height: auto; min-height: 60px; }
         .gemini-bar span:first-child { font-size: 18px; }
         .date-badge { font-size: 11px; margin-top: 2px; }
         .main .block-container { padding-top: 85px !important; }
         [data-testid="stSidebarCollapsedControl"] { top: 10px !important; left: 10px !important; width: 35px; height: 35px; }
-        [data-testid="stSidebarCollapsedControl"]::after { font-size: 18px; }
     }
 
-    /* Layout */
     .main .block-container { padding: 70px 1rem 0 1rem !important; max-width: 100% !important; }
     div[data-testid="column"]:nth-of-type(1) { height: calc(100vh - 80px); overflow: hidden; padding-right: 15px; border-right: 1px solid #f0f0f0; }
     div[data-testid="column"]:nth-of-type(2) { height: calc(100vh - 80px); overflow-y: auto; padding-left: 15px; display: flex; flex-direction: column; justify-content: flex-end; }
@@ -63,13 +58,12 @@ st.markdown("""
 @st.cache_data(ttl=3600)
 def fetch_market_data(ticker):
     try:
-        # ดึงย้อนหลังแบบ Max เพื่อให้ครอบคลุมวันที่เลือก
-        df = yf.download(ticker, period="10y", progress=False)
+        df = yf.download(ticker, period="max", progress=False)
         if df.empty: return None
         df.reset_index(inplace=True)
         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
         
-        # [FIX 1] Timezone Removal & Sorting (สำคัญมากสำหรับการ Merge)
+        # [CRITICAL FIX] Ensure pure datetime without timezone
         df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
         return df.sort_values('Date')
     except: return None
@@ -88,15 +82,12 @@ def get_ft_data_static():
     ]
     df = pd.DataFrame(data, columns=["Date", "Close"])
     df['Date'] = pd.to_datetime(df['Date'])
-    
-    # [FIX 2] สร้าง Index ถึงปัจจุบัน + ใช้ ffill (Forward Fill)
-    # ffill = ค่าล่าสุดจะถูกลากยาวไปจนถึงวันปัจจุบัน (แก้ปัญหา NaN ในอนาคต)
+    # Fill forward to today
     idx = pd.date_range(start=df.Date.min(), end=datetime.now())
     df = df.set_index('Date').reindex(idx).ffill().reset_index().rename(columns={'index': 'Date'})
     return df
 
 def get_data_point(df, target_date):
-    # หาข้อมูลที่ใกล้เคียงที่สุด (Backward search)
     mask = df['Date'] <= pd.Timestamp(target_date)
     if not mask.any(): return None, None
     row = df.loc[mask].iloc[-1]
@@ -132,7 +123,6 @@ col_dash, col_chat = st.columns([7, 3])
 with col_dash:
     thb_df = fetch_market_data("THB=X")
     
-    # Metrics
     cols = st.columns(len(ASSETS))
     summary_text = f"Market Data ({display_date}):\n"
     for idx, (name, conf) in enumerate(ASSETS.items()):
@@ -142,13 +132,11 @@ with col_dash:
                 price, p_date = get_data_point(df, target_date)
                 if price is not None and not pd.isna(price):
                     try:
-                        # หา Change โดยเทียบกับข้อมูลที่มีอยู่จริง (ไม่ใช่ Index-1 เฉยๆ)
                         curr_idx = df[df['Date'] == p_date].index[0]
                         prev_idx = curr_idx - 1
                         prev = df.iloc[prev_idx]['Close'] if prev_idx >= 0 else price
                         pct = ((price - prev)/prev)*100 if prev!=0 else 0
                     except: pct = 0
-                    
                     unit = conf['unit']
                     if is_thb and conf['curr'] == 'USD' and thb_df is not None:
                         rate, _ = get_data_point(thb_df, p_date)
@@ -158,7 +146,6 @@ with col_dash:
                 else: st.metric(name, "No Data", "-")
             else: st.metric(name, "Error", "-")
 
-    # Graph
     if sel_assets:
         chart_data = []
         start_dt = datetime.now() - timedelta(days=PERIODS[sel_period])
@@ -169,11 +156,10 @@ with col_dash:
             if df is not None:
                 sub = df[df['Date'] >= start_dt].copy()
                 
-                # [FIX 3] แปลงค่าเงินด้วย merge_asof (แก้กราฟหาย/เพี้ยน)
+                # Convert Logic
                 if is_thb and conf['curr'] == 'USD' and thb_df is not None:
                     sub = sub.sort_values('Date')
                     thb_sorted = thb_df.sort_values('Date')
-                    # merge_asof จะหาเรทค่าเงินที่ใกล้ที่สุดในอดีตมาคูณ (แม้จะเป็นวันหยุด)
                     merged = pd.merge_asof(sub, thb_sorted[['Date', 'Close']], on='Date', direction='backward', suffixes=('', '_R'))
                     sub['Close'] = sub['Close'] * merged['Close_R']
                 
@@ -183,23 +169,22 @@ with col_dash:
                     if mx != 0: sub['Close'] /= mx; label = f"{name} (Norm)"
                 
                 sub['Asset'] = label
-                # ลบ NaN ทิ้งก่อนพล็อตกราฟ
-                sub = sub.dropna(subset=['Close'])
+                # อย่าเพิ่ง dropna() ตรงนี้ เพราะเราอยากให้ connectgaps ทำงาน
                 chart_data.append(sub[['Date', 'Close', 'Asset']])
         
         if chart_data:
             final_df = pd.concat(chart_data)
-            
-            # Auto-Scale Logic
             y_vals = final_df['Close']
             y_min, y_max = y_vals.min(), y_vals.max()
-            # กัน error กรณี y_max เป็น nan
             if pd.isna(y_max): y_max = 1
             if pd.isna(y_min): y_min = 0
-            
             padding = (y_max - y_min) * 0.1 if y_max != y_min else (y_max * 0.1 if y_max !=0 else 1.0)
             
             fig = px.line(final_df, x='Date', y='Close', color='Asset', template="plotly_white")
+            
+            # [FIX] Connect Gaps: สั่งให้ลากเส้นเชื่อมจุดที่ข้อมูลหาย
+            fig.update_traces(connectgaps=True) 
+            
             fig.add_vline(x=datetime.combine(target_date, datetime.min.time()).timestamp() * 1000, line_dash="dash", line_color="red")
             
             fig.update_layout(
@@ -210,7 +195,6 @@ with col_dash:
             )
             fig.update_yaxes(fixedrange=True, range=[y_min - padding, y_max + padding])
             fig.update_xaxes(fixedrange=True)
-            
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'scrollZoom': False, 'showTips': False})
     else: st.info("Select assets")
 
