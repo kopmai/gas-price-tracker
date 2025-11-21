@@ -63,8 +63,8 @@ def fetch_market_data(ticker):
         df.reset_index(inplace=True)
         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
         
-        # Clean Date to Midnight (Crucial for matching)
-        df['Date'] = pd.to_datetime(df['Date']).dt.normalize()
+        # Ensure pure datetime without timezone
+        df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
         return df.sort_values('Date')
     except: return None
 
@@ -81,10 +81,11 @@ def get_ft_data_static():
         ("2025-01-01", 0.3672),  ("2025-05-01", 0.1972),  ("2025-09-01", 0.1572)
     ]
     df = pd.DataFrame(data, columns=["Date", "Close"])
-    df['Date'] = pd.to_datetime(df['Date']).dt.normalize()
+    df['Date'] = pd.to_datetime(df['Date'])
     
-    # Extend Ft to future (today) using forward fill
-    today = datetime.now().normalize()
+    # [FIXED HERE] Use pd.Timestamp.now().normalize() instead of datetime.now().normalize()
+    today = pd.Timestamp.now().normalize()
+    
     if df['Date'].max() < today:
         new_row = pd.DataFrame({"Date": [today], "Close": [None]})
         df = pd.concat([df, new_row], ignore_index=True)
@@ -94,8 +95,7 @@ def get_ft_data_static():
     return df
 
 def get_data_point(df, target_date):
-    ts = pd.Timestamp(target_date).normalize()
-    mask = df['Date'] <= ts
+    mask = df['Date'] <= pd.Timestamp(target_date)
     if not mask.any(): return None, None
     row = df.loc[mask].iloc[-1]
     return row['Close'], row['Date']
@@ -130,7 +130,6 @@ col_dash, col_chat = st.columns([7, 3])
 with col_dash:
     thb_df = fetch_market_data("THB=X")
     
-    # Metrics
     cols = st.columns(len(ASSETS))
     summary_text = f"Market Data ({display_date}):\n"
     for idx, (name, conf) in enumerate(ASSETS.items()):
@@ -155,7 +154,6 @@ with col_dash:
                 else: st.metric(name, "No Data", "-")
             else: st.metric(name, "Error", "-")
 
-    # Graph Logic (FIXED for THB Conversion)
     if sel_assets:
         chart_data = []
         start_dt = (datetime.now() - timedelta(days=PERIODS[sel_period])).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -166,18 +164,14 @@ with col_dash:
             
             if df is not None:
                 sub = df[df['Date'] >= start_dt].copy()
-                sub = sub.set_index('Date') # ใช้ Index จัดการง่ายกว่า
+                sub = sub.set_index('Date')
                 
-                # [CRITICAL FIX] Convert using Index Mapping (Robust against missing dates)
                 if is_thb and conf['curr'] == 'USD' and thb_df is not None:
                     thb_indexed = thb_df.set_index('Date')
-                    # สร้าง Rate Column โดย map วันที่ ถ้าไม่เจอให้เอาวันก่อนหน้า (ffill)
                     sub['Rate'] = thb_indexed['Close'].reindex(sub.index, method='ffill')
                     sub['Close'] = sub['Close'] * sub['Rate']
                 
-                sub = sub.reset_index() # คืนค่า Index เพื่อส่งให้ Plotly
-                
-                # Normalize Logic
+                sub = sub.reset_index()
                 label = name
                 if is_norm:
                     mx = sub['Close'].max()
@@ -186,13 +180,11 @@ with col_dash:
                         label = f"{name} (Norm)"
                 
                 sub['Asset'] = label
-                sub = sub.dropna(subset=['Close']) # ลบค่าว่างทิ้ง
+                sub = sub.dropna(subset=['Close'])
                 chart_data.append(sub[['Date', 'Close', 'Asset']])
         
         if chart_data:
             final_df = pd.concat(chart_data)
-            
-            # Auto-Scale Logic
             y_vals = final_df['Close']
             y_min, y_max = y_vals.min(), y_vals.max()
             if pd.isna(y_max): y_max = 1
@@ -200,7 +192,7 @@ with col_dash:
             padding = (y_max - y_min) * 0.1 if y_max != y_min else (y_max * 0.1 if y_max !=0 else 1.0)
             
             fig = px.line(final_df, x='Date', y='Close', color='Asset', template="plotly_white")
-            fig.update_traces(connectgaps=True) # ลากเส้นเชื่อมจุดที่หาย
+            fig.update_traces(connectgaps=True)
             
             fig.add_vline(x=datetime.combine(target_date, datetime.min.time()).timestamp() * 1000, line_dash="dash", line_color="red")
             
