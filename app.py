@@ -51,8 +51,6 @@ st.markdown("""
     .stChatInput { padding-bottom: 10px; z-index: 100; }
     header[data-testid="stHeader"] { background: transparent; z-index: 100000; }
     header .decoration { display: none; }
-    
-    /* ปุ่ม Reset ใน Sidebar */
     button[kind="secondary"] { width: 100%; border: 1px solid #ddd; }
 </style>
 """, unsafe_allow_html=True)
@@ -65,6 +63,8 @@ def fetch_market_data(ticker):
         if df.empty: return None
         df.reset_index(inplace=True)
         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+        
+        # [CRITICAL FIX] Remove Timezone info completely
         df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None).dt.normalize()
         return df.sort_values('Date')
     except: return None
@@ -94,7 +94,8 @@ def get_ft_data_static():
     return df
 
 def get_data_point(df, target_date):
-    mask = df['Date'] <= pd.Timestamp(target_date).normalize()
+    ts = pd.Timestamp(target_date).normalize()
+    mask = df['Date'] <= ts
     if not mask.any(): return None, None
     row = df.loc[mask].iloc[-1]
     return row['Close'], row['Date']
@@ -111,16 +112,11 @@ PERIODS = {"1mo":30, "3mo":90, "6mo":180, "1y":365, "5y":1825, "Max":3650}
 # --- 4. SIDEBAR ---
 st.sidebar.title("⚙️ Control Panel")
 with st.sidebar:
-    # [FEATURE] Reset Button Logic
-    # ปุ่มกดเพื่อรีเซ็ตค่าใน Session State
     if st.button("🔄 Reset to Today"):
         st.session_state.date_selector = datetime.now()
         st.rerun()
 
-    st.subheader("📅 Select Date")
-    # ผูก widget กับ session_state key="date_selector"
     target_date = st.date_input("Pick a date", value=datetime.now(), max_value=datetime.now(), key="date_selector", label_visibility="collapsed")
-    
     st.divider()
     sel_period = st.selectbox("⏳ Timeframe", list(PERIODS.keys()), index=4)
     st.divider()
@@ -169,13 +165,25 @@ with col_dash:
         for name in sel_assets:
             conf = ASSETS[name]
             df = get_ft_data_static() if conf["type"] == "manual" else fetch_market_data(conf["ticker"])
+            
             if df is not None:
                 sub = df[df['Date'] >= start_dt].copy()
                 
+                # [FIX HERE] Explicitly clean types before operations
+                sub['Date'] = pd.to_datetime(sub['Date']).dt.tz_localize(None)
+                
                 if is_thb and conf['curr'] == 'USD' and thb_df is not None:
-                    thb_indexed = thb_df.set_index('Date')
+                    # Force THB date match
+                    thb_clean = thb_df.copy()
+                    thb_clean['Date'] = pd.to_datetime(thb_clean['Date']).dt.tz_localize(None)
+                    
+                    sub = sub.set_index('Date')
+                    thb_indexed = thb_clean.set_index('Date')
+                    
+                    # Safe reindex with forward fill (แก้ปัญหา Type Error + วันหยุด)
                     sub['Rate'] = thb_indexed['Close'].reindex(sub.index, method='ffill')
                     sub['Close'] = sub['Close'] * sub['Rate']
+                    sub = sub.reset_index()
                 
                 label = name
                 if is_norm:
