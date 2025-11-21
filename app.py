@@ -20,7 +20,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed" 
 )
 
-# --- CSS ปรับแต่ง (Dashboard Mode) ---
+# --- CSS ปรับแต่ง (Dashboard Mode: Lock Screen + Fix Overlap) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap');
@@ -32,14 +32,20 @@ st.markdown("""
     }
     .stApp { background-color: #ffffff; }
 
-    /* Top Bar */
+    /* [FIX] Top Bar: เพิ่ม padding-right เพื่อหลบปุ่ม Streamlit */
     .gemini-bar {
         position: fixed; top: 0; left: 0; width: 100%; height: 60px;
         background-color: #ffffff; border-bottom: 1px solid #dadce0;
         z-index: 99999; display: flex; align-items: center;
-        padding-left: 80px; padding-right: 20px;
+        
+        /* เว้นซ้ายไว้ให้ปุ่ม Hamburger */
+        padding-left: 80px; 
+        
+        /* [สำคัญ] เว้นขวาไว้ 200px เพื่อไม่ให้ทับปุ่ม Deploy/Menu */
+        padding-right: 200px; 
+        
         font-size: 20px; font-weight: 600; color: #1f1f1f;
-        justify-content: space-between; /* จัดให้วันที่ชิดขวา */
+        justify-content: space-between;
     }
     
     /* วันที่ใน Top Bar */
@@ -50,6 +56,7 @@ st.markdown("""
         padding: 5px 12px;
         border-radius: 20px;
         font-weight: 400;
+        white-space: nowrap; /* ห้ามตัดบรรทัด */
     }
 
     .main .block-container { 
@@ -92,19 +99,17 @@ st.markdown("""
 @st.cache_data(ttl=300)
 def get_data(ticker, period="1y"):
     try:
-        data = yf.download(ticker, period="max", progress=False) # ดึง max เพื่อให้รองรับการเลือกวันที่ย้อนหลัง
+        data = yf.download(ticker, period="max", progress=False)
         if data.empty: return None, "No Data"
         data.reset_index(inplace=True)
         if isinstance(data.columns, pd.MultiIndex):
             data.columns = data.columns.get_level_values(0)
         
-        # Filter for Graph (ตัดตาม period ที่เลือก)
         if period != "max":
             days_map = {"1mo":30, "3mo":90, "6mo":180, "1y":365, "5y":1825, "10y":3650}
             cutoff = datetime.now() - timedelta(days=days_map.get(period, 3650))
             data_filtered = data[data['Date'] >= cutoff]
-            return data_filtered, None, data # คืนค่า (filtered, error, full_data)
-        
+            return data_filtered, None, data
         return data, None, data
     except Exception: return None, "Error", None
 
@@ -125,25 +130,20 @@ def get_ft_data(period_days=365):
     df_daily = pd.DataFrame(date_range, columns=['Date'])
     df_merged = pd.merge_asof(df_daily, df_ft, on='Date', direction='backward')
     
-    # Return 2 versions: Filtered & Full
     today = datetime.now()
     start_date = today - timedelta(days=period_days)
     df_filtered = df_merged[df_merged['Date'] >= start_date].copy()
     df_filtered.rename(columns={'Ft': 'Close'}, inplace=True)
     
-    df_full = df_merged.copy() # Full history for lookup
+    df_full = df_merged.copy() 
     df_full.rename(columns={'Ft': 'Close'}, inplace=True)
-    
     return df_filtered, df_full
 
-# Helper: Find closest date
 def get_price_at_date(df, target_date):
-    # Filter ข้อมูลที่วันที่ <= target_date
     target_ts = pd.Timestamp(target_date)
     past_data = df[df['Date'] <= target_ts]
-    
     if not past_data.empty:
-        row = past_data.iloc[-1] # ตัวล่าสุดก่อนหน้าหรือตรงกัน
+        row = past_data.iloc[-1]
         return row['Close'], row['Date']
     return None, None
 
@@ -159,13 +159,10 @@ st.sidebar.title("⚙️ Control")
 if not GROQ_API_KEY: api_key = st.sidebar.text_input("API Key", type="password")
 else: api_key = GROQ_API_KEY
 
-# [NEW] Date Picker
 st.sidebar.divider()
 st.sidebar.subheader("📅 Date Selection")
 target_date = st.sidebar.date_input("Select Date", value=datetime.now(), max_value=datetime.now())
-st.sidebar.caption("เลือกวันที่เพื่อดูราคาในอดีต")
 
-# Graph Timeframe
 st.sidebar.divider()
 period_map = {"1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "5y": 1825, "10y (Max)": 3650}
 selected_period_str = st.sidebar.selectbox("⏳ Graph Timeframe", list(period_map.keys()), index=4)
@@ -177,12 +174,9 @@ normalize_mode = st.sidebar.toggle("📏 Normalize (Max=1)", value=False)
 st.sidebar.divider()
 selected_assets = st.sidebar.multiselect("Compare:", list(assets_config.keys()), default=["Ft (Thai)", "JKM (LNG)"])
 
-# --- Logic for Date Display in Top Bar ---
 display_date_str = target_date.strftime("%d/%m/%Y")
-# Note: วันที่จริงที่ข้อมูลมีอาจไม่ตรงกับที่เลือก (เช่น เลือกวันอาทิตย์ ข้อมูลจะเป็นวันศุกร์)
-# เราจะอัปเดต text นี้อีกทีใน loop ข้างล่างถ้าจำเป็น
 
-# --- Top Bar ---
+# --- Top Bar (Fixed) ---
 st.markdown(f"""
     <div class="gemini-bar">
         <span>⚡ Energy Price Tracker</span>
@@ -195,44 +189,26 @@ col_dash, col_chat = st.columns([7, 3])
 
 # === LEFT: Dashboard ===
 with col_dash:
-    # 1. Metrics (Based on Selected Date)
-    # Load Full Data for Lookup
+    # 1. Metrics
     _, _, thb_full = get_data("THB=X", "max")
-    
     cols_m = st.columns(len(assets_config))
     data_summary_text = f"ข้อมูลตลาดพลังงาน ณ วันที่ {display_date_str}:\n"
     
-    # ตัวแปรเก็บวันที่จริงของข้อมูล (เอาไว้โชว์ถ้าเลือกวันหยุด)
-    actual_data_date = target_date
-
     for idx, (name, config) in enumerate(assets_config.items()):
-        # Fetch Full Data for accurate lookup
-        if config["type"] == "manual": 
-            _, df_full = get_ft_data()
-        else: 
-            _, _, df_full = get_data(config["ticker"], "max")
+        if config["type"] == "manual": _, df_full = get_ft_data()
+        else: _, _, df_full = get_data(config["ticker"], "max")
         
         with cols_m[idx]:
             price_today = None
-            
             if df_full is not None and not df_full.empty:
-                # Find price at selected date
                 price_today, date_today = get_price_at_date(df_full, target_date)
-                
                 if price_today is not None:
-                    # Update actual date (เอาวันที่ล่าสุดที่เจอของสินทรัพย์แรกๆ มาเป็นตัวอ้างอิง)
-                    if idx == 0: actual_data_date = date_today
-
-                    # Calculate Change (Compare to previous trading day relative to selected date)
-                    # หา index ของวันนั้น
                     try:
                         idx_today = df_full[df_full['Date'] == date_today].index[0]
                         prev_price = df_full.iloc[idx_today - 1]['Close'] if idx_today > 0 else price_today
                         pct_change = ((price_today - prev_price) / prev_price) * 100
-                    except:
-                        pct_change = 0
+                    except: pct_change = 0
                     
-                    # Convert Currency
                     unit = config['unit']
                     if convert_to_thb and config['currency'] == 'USD' and thb_full is not None:
                         rate, _ = get_price_at_date(thb_full, date_today)
@@ -242,29 +218,19 @@ with col_dash:
                     
                     st.metric(name, f"{price_today:,.2f} {unit}", f"{pct_change:+.2f}%")
                     data_summary_text += f"- {name}: {price_today:,.2f} {unit}\n"
-                else:
-                    st.metric(name, "No Data", "-")
-            else:
-                st.metric(name, "-", "-")
+                else: st.metric(name, "No Data", "-")
+            else: st.metric(name, "-", "-")
     
-    # Update Top Bar Date Text (Javascript Injection to update date if it was a weekend)
-    # (Optional: for simplicity, we keep showing user selected date, but Metric shows real values)
-    
-    # 2. Graph (Shows Range)
+    # 2. Graph
     if selected_assets:
         combined_df = pd.DataFrame()
         for asset_name in selected_assets:
             config = assets_config[asset_name]
-            # Fetch graph data based on selected timeframe (Sidebar)
-            if config["type"] == "manual": 
-                df_trend, _ = get_ft_data(selected_days)
-            else: 
-                df_trend, _, _ = get_data(config["ticker"], selected_period_str)
+            if config["type"] == "manual": df_trend, _ = get_ft_data(selected_days)
+            else: df_trend, _, _ = get_data(config["ticker"], selected_period_str)
             
             if df_trend is not None:
                 temp_df = df_trend[['Date', 'Close']].copy()
-                
-                # Convert Logic
                 if convert_to_thb and config['currency'] == 'USD' and thb_full is not None:
                     merged = pd.merge(temp_df, thb_full[['Date', 'Close']], on='Date', how='inner', suffixes=('', '_Rate'))
                     temp_df['Close'] = merged['Close'] * merged['Close_Rate']
@@ -282,11 +248,8 @@ with col_dash:
         if not combined_df.empty:
             y_title = "Norm (Max=1)" if normalize_mode else "Price"
             fig = px.line(combined_df, x='Date', y='Close', color='Asset', template="plotly_white")
-            
-            # Add Vertical Line for Selected Date
             fig.add_vline(x=datetime.timestamp(datetime.combine(target_date, datetime.min.time())) * 1000, 
-                          line_width=2, line_dash="dash", line_color="red", annotation_text="Selected Date")
-
+                          line_width=2, line_dash="dash", line_color="red")
             fig.update_layout(
                 xaxis_title=None, yaxis_title=y_title, legend_title=None,
                 hovermode="x unified", height=600, 
@@ -304,18 +267,13 @@ with col_chat:
         st.session_state.messages = []
         if api_key:
             try:
-                initial_prompt = f"""
-                วิเคราะห์ตลาดพลังงาน ณ วันที่ {target_date.strftime('%d/%m/%Y')}
-                จากข้อมูลนี้:
-                {data_summary_text}
-                เน้นเปรียบเทียบกับอดีตและแนวโน้ม
-                """
+                initial_prompt = f"วิเคราะห์ตลาดพลังงาน ณ วันที่ {target_date.strftime('%d/%m/%Y')} จากข้อมูลนี้: {data_summary_text} (ตอบสั้นๆ)"
                 client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=api_key)
                 completion = client.chat.completions.create(
                     model="llama-3.1-8b-instant",
                     messages=[{"role": "user", "content": initial_prompt}]
                 )
-                st.session_state.messages.append({"role": "assistant", "content": f"**📅 Analysis for {target_date.strftime('%d/%m/%Y')}:**\n{completion.choices[0].message.content}"})
+                st.session_state.messages.append({"role": "assistant", "content": f"**Analysis ({target_date.strftime('%d/%m')}):**\n{completion.choices[0].message.content}"})
             except: pass
 
     for msg in st.session_state.messages:
