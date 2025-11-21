@@ -51,6 +51,9 @@ st.markdown("""
     .stChatInput { padding-bottom: 10px; z-index: 100; }
     header[data-testid="stHeader"] { background: transparent; z-index: 100000; }
     header .decoration { display: none; }
+    
+    /* ปุ่ม Reset ใน Sidebar */
+    button[kind="secondary"] { width: 100%; border: 1px solid #ddd; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -62,8 +65,6 @@ def fetch_market_data(ticker):
         if df.empty: return None
         df.reset_index(inplace=True)
         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-        
-        # [CRITICAL] Normalize date to remove time/timezone issues
         df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None).dt.normalize()
         return df.sort_values('Date')
     except: return None
@@ -110,7 +111,16 @@ PERIODS = {"1mo":30, "3mo":90, "6mo":180, "1y":365, "5y":1825, "Max":3650}
 # --- 4. SIDEBAR ---
 st.sidebar.title("⚙️ Control Panel")
 with st.sidebar:
-    target_date = st.date_input("📅 Select Date", value=datetime.now(), max_value=datetime.now())
+    # [FEATURE] Reset Button Logic
+    # ปุ่มกดเพื่อรีเซ็ตค่าใน Session State
+    if st.button("🔄 Reset to Today"):
+        st.session_state.date_selector = datetime.now()
+        st.rerun()
+
+    st.subheader("📅 Select Date")
+    # ผูก widget กับ session_state key="date_selector"
+    target_date = st.date_input("Pick a date", value=datetime.now(), max_value=datetime.now(), key="date_selector", label_visibility="collapsed")
+    
     st.divider()
     sel_period = st.selectbox("⏳ Timeframe", list(PERIODS.keys()), index=4)
     st.divider()
@@ -128,7 +138,6 @@ col_dash, col_chat = st.columns([7, 3])
 with col_dash:
     thb_df = fetch_market_data("THB=X")
     
-    # Metrics
     cols = st.columns(len(ASSETS))
     summary_text = f"Market Data ({display_date}):\n"
     for idx, (name, conf) in enumerate(ASSETS.items()):
@@ -153,7 +162,6 @@ with col_dash:
                 else: st.metric(name, "No Data", "-")
             else: st.metric(name, "Error", "-")
 
-    # Graph Logic
     if sel_assets:
         chart_data = []
         start_dt = (datetime.now() - timedelta(days=PERIODS[sel_period])).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -164,15 +172,10 @@ with col_dash:
             if df is not None:
                 sub = df[df['Date'] >= start_dt].copy()
                 
-                # [FIX] ROBUST CURRENCY CONVERSION (asof lookup)
                 if is_thb and conf['curr'] == 'USD' and thb_df is not None:
-                    # สร้าง Reference Table ของค่าเงิน (เรียงวันที่ + Forward Fill)
-                    thb_lookup = thb_df.set_index('Date')['Close'].sort_index().ffill()
-                    
-                    # ใช้ .asof() เพื่อดึงเรทของ "วันนั้น หรือ วันก่อนหน้า" มาใส่ (แก้ปัญหากราฟหาย)
-                    # ถ้าวันไหนไม่มีเรท มันจะเอาเรทของเมื่อวานมาใช้ให้เอง
-                    rates = thb_lookup.asof(sub['Date'])
-                    sub['Close'] = sub['Close'] * rates.values
+                    thb_indexed = thb_df.set_index('Date')
+                    sub['Rate'] = thb_indexed['Close'].reindex(sub.index, method='ffill')
+                    sub['Close'] = sub['Close'] * sub['Rate']
                 
                 label = name
                 if is_norm:
@@ -180,6 +183,7 @@ with col_dash:
                     if mx != 0 and not pd.isna(mx): sub['Close'] /= mx; label = f"{name} (Norm)"
                 
                 sub['Asset'] = label
+                sub = sub.dropna(subset=['Close'])
                 chart_data.append(sub[['Date', 'Close', 'Asset']])
         
         if chart_data:
@@ -200,10 +204,8 @@ with col_dash:
                 legend=dict(orientation="h", y=1.02, x=1, xanchor="right"),
                 dragmode=False
             )
-            # Force X-Axis to Match Selection
             fig.update_xaxes(fixedrange=True, range=[start_dt, datetime.now()])
             fig.update_yaxes(fixedrange=True, range=[y_min - padding, y_max + padding])
-            
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'scrollZoom': False, 'showTips': False})
     else: st.info("Select assets")
 
