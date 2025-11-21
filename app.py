@@ -46,8 +46,8 @@ st.markdown("""
     div[data-testid="column"]:nth-of-type(2) { height: calc(100vh - 80px); overflow-y: auto; padding-left: 15px; display: flex; flex-direction: column; justify-content: flex-end; }
     
     div[data-testid="stMetric"] { background: #f8f9fa; border: 1px solid #eee; padding: 8px; border-radius: 6px; text-align: center; }
-    div[data-testid="stMetricLabel"] { font-size: 12px !important; }
-    div[data-testid="stMetricValue"] { font-size: 16px !important; font-weight: 600; }
+    div[data-testid="stMetricLabel"] { font-size: 14px !important; font-weight: 500; } /* เพิ่มขนาดตัวหนังสือหัวข้อการ์ดนิดนึง */
+    div[data-testid="stMetricValue"] { font-size: 18px !important; font-weight: 600; }
     .stChatInput { padding-bottom: 10px; z-index: 100; }
     header[data-testid="stHeader"] { background: transparent; z-index: 100000; }
     header .decoration { display: none; }
@@ -63,8 +63,6 @@ def fetch_market_data(ticker):
         if df.empty: return None
         df.reset_index(inplace=True)
         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-        
-        # [CRITICAL FIX] Remove Timezone info completely
         df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None).dt.normalize()
         return df.sort_values('Date')
     except: return None
@@ -94,18 +92,17 @@ def get_ft_data_static():
     return df
 
 def get_data_point(df, target_date):
-    ts = pd.Timestamp(target_date).normalize()
-    mask = df['Date'] <= ts
+    mask = df['Date'] <= pd.Timestamp(target_date).normalize()
     if not mask.any(): return None, None
     row = df.loc[mask].iloc[-1]
     return row['Close'], row['Date']
 
-# --- 3. CONFIG ---
+# --- 3. CONFIG (UPDATED NAMES & ORDER) ---
 ASSETS = {
-    "USD/THB":   {"type": "api", "ticker": "THB=X", "unit": "Baht", "curr": "THB"},
-    "Ft (Thai)": {"type": "manual", "ticker": "FT",    "unit": "Baht", "curr": "THB"},
-    "JKM (LNG)": {"type": "api", "ticker": "JKM=F", "unit": "$/MMBtu", "curr": "USD"}, 
-    "Henry Hub": {"type": "api", "ticker": "NG=F",  "unit": "$/MMBtu", "curr": "USD"},
+    "ราคาตลาด JKM": {"type": "api", "ticker": "JKM=F", "unit": "$/MMBtu", "curr": "USD"},
+    "ราคาตลาด Henry Hub": {"type": "api", "ticker": "NG=F",  "unit": "$/MMBtu", "curr": "USD"},
+    "อัตราแลกเปลี่ยน (USD/THB)": {"type": "api", "ticker": "THB=X", "unit": "Baht", "curr": "THB"},
+    "ค่าไฟฟ้าผันแปร (Ft)": {"type": "manual", "ticker": "FT",    "unit": "Baht", "curr": "THB"},
 }
 PERIODS = {"1mo":30, "3mo":90, "6mo":180, "1y":365, "5y":1825, "Max":3650}
 
@@ -123,7 +120,8 @@ with st.sidebar:
     is_thb = st.toggle("🇹🇭 THB Convert", False)
     is_norm = st.toggle("📏 Normalize (Max=1)", False)
     st.divider()
-    sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["Ft (Thai)", "JKM (LNG)"])
+    # Update default selection to match new names
+    sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ค่าไฟฟ้าผันแปร (Ft)", "ราคาตลาด JKM"])
 
 # --- 5. MAIN ---
 display_date = target_date.strftime("%d/%m/%Y")
@@ -132,6 +130,9 @@ col_dash, col_chat = st.columns([7, 3])
 
 # === LEFT ===
 with col_dash:
+    # [NEW] Header
+    st.subheader("สรุปภาพรวมตลาดวันนี้")
+    
     thb_df = fetch_market_data("THB=X")
     
     cols = st.columns(len(ASSETS))
@@ -169,18 +170,17 @@ with col_dash:
             if df is not None:
                 sub = df[df['Date'] >= start_dt].copy()
                 
-                # [FIX HERE] Explicitly clean types before operations
+                # Clean and Prepare
                 sub['Date'] = pd.to_datetime(sub['Date']).dt.tz_localize(None)
                 
                 if is_thb and conf['curr'] == 'USD' and thb_df is not None:
-                    # Force THB date match
                     thb_clean = thb_df.copy()
                     thb_clean['Date'] = pd.to_datetime(thb_clean['Date']).dt.tz_localize(None)
                     
                     sub = sub.set_index('Date')
                     thb_indexed = thb_clean.set_index('Date')
                     
-                    # Safe reindex with forward fill (แก้ปัญหา Type Error + วันหยุด)
+                    # Safe reindex
                     sub['Rate'] = thb_indexed['Close'].reindex(sub.index, method='ffill')
                     sub['Close'] = sub['Close'] * sub['Rate']
                     sub = sub.reset_index()
