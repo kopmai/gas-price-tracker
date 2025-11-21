@@ -20,7 +20,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed" 
 )
 
-# --- CSS ปรับแต่ง (Responsive Mobile Fix) ---
+# --- CSS ปรับแต่ง ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap');
@@ -32,88 +32,47 @@ st.markdown("""
     }
     .stApp { background-color: #ffffff; }
 
-    /* --- Top Bar (Default Desktop) --- */
+    /* Top Bar */
     .gemini-bar {
         position: fixed; top: 0; left: 0; width: 100%; height: 64px;
         background-color: #ffffff; border-bottom: 1px solid #dadce0;
         z-index: 99999; 
-        display: flex; 
-        align-items: center;
-        justify-content: space-between; /* ชิดซ้าย-ขวา */
-        
-        padding-left: 80px;  /* เว้นซ้ายให้ Hamburger */
-        padding-right: 200px; /* เว้นขวาให้ปุ่ม Deploy บนคอม */
-        
+        display: flex; align-items: center; justify-content: space-between;
+        padding-left: 80px; padding-right: 200px;
         font-size: 20px; font-weight: 600; color: #1f1f1f;
     }
     
-    /* Badge วันที่ (Desktop) */
     .date-badge {
-        font-size: 14px;
-        color: #5f6368;
-        background-color: #f1f3f4;
-        padding: 5px 12px;
-        border-radius: 20px;
-        font-weight: 400;
-        white-space: nowrap;
+        font-size: 14px; color: #5f6368; background-color: #f1f3f4;
+        padding: 5px 12px; border-radius: 20px; font-weight: 400; white-space: nowrap;
     }
 
-    /* --- [NEW] Mobile Responsive Fix (จอมือถือ) --- */
+    /* Mobile Responsive */
     @media (max-width: 600px) {
         .gemini-bar {
-            padding-left: 60px; /* ลดที่เว้นซ้าย */
-            padding-right: 10px; /* ลดที่เว้นขวา */
-            flex-direction: column; /* เรียงแนวตั้ง (ชื่ออยู่บน วันที่อยู่ล่าง) */
-            align-items: flex-start; /* ชิดซ้ายทั้งคู่ */
-            justify-content: center;
-            gap: 2px;
-            height: auto; /* ให้ความสูงยืดหดได้ */
-            min-height: 60px;
-            padding-top: 5px;
-            padding-bottom: 5px;
+            padding-left: 60px; padding-right: 10px;
+            flex-direction: column; align-items: flex-start; justify-content: center;
+            gap: 2px; height: auto; min-height: 60px; padding-top: 5px; padding-bottom: 5px;
         }
-        
-        /* ชื่อแอพบนมือถือ */
-        .gemini-bar span:first-child {
-            font-size: 18px;
-            line-height: 1.2;
-        }
-
-        /* วันที่บนมือถือ (ย้ายมาอยู่ซ้าย และตัวเล็กลง) */
-        .date-badge {
-            font-size: 11px;
-            padding: 2px 8px;
-            background-color: #f1f3f4; /* พื้นหลังจางๆ */
-            margin-top: 2px;
-        }
-        
-        /* ดันเนื้อหาลงมาอีกหน่อย เพราะ Top Bar อาจจะสูงขึ้น */
-        .main .block-container { 
-            padding-top: 85px !important; 
-        }
+        .gemini-bar span:first-child { font-size: 18px; line-height: 1.2; }
+        .date-badge { font-size: 11px; padding: 2px 8px; margin-top: 2px; }
+        .main .block-container { padding-top: 85px !important; }
     }
-    /* ----------------------------------------- */
 
     .main .block-container { 
-        padding-top: 80px !important; 
-        padding-bottom: 0 !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
+        padding-top: 80px !important; padding-bottom: 0 !important;
+        padding-left: 1rem !important; padding-right: 1rem !important;
         max-width: 100% !important;
     }
 
     /* Layout Columns */
     div[data-testid="column"]:nth-of-type(1) {
-        height: calc(100vh - 80px);
-        overflow: hidden; 
-        padding-right: 15px;
-        border-right: 1px solid #f0f0f0;
+        height: calc(100vh - 80px); overflow: hidden; 
+        padding-right: 15px; border-right: 1px solid #f0f0f0;
     }
     div[data-testid="column"]:nth-of-type(2) {
-        height: calc(100vh - 80px);
-        overflow-y: auto;
-        padding-left: 15px;
-        display: flex; flex-direction: column; justify-content: flex-end;
+        height: calc(100vh - 80px); overflow-y: auto;
+        padding-left: 15px; display: flex; flex-direction: column; justify-content: flex-end;
     }
 
     div[data-testid="stMetric"] {
@@ -208,7 +167,7 @@ selected_assets = st.sidebar.multiselect("Compare:", list(assets_config.keys()),
 
 display_date_str = target_date.strftime("%d/%m/%Y")
 
-# --- Top Bar (Fixed) ---
+# --- Top Bar ---
 st.markdown(f"""
     <div class="gemini-bar">
         <span>⚡ Energy Price Tracker</span>
@@ -282,13 +241,25 @@ with col_dash:
             fig = px.line(combined_df, x='Date', y='Close', color='Asset', template="plotly_white")
             fig.add_vline(x=datetime.timestamp(datetime.combine(target_date, datetime.min.time())) * 1000, 
                           line_width=2, line_dash="dash", line_color="red")
+            
+            # [FEATURE UPDATED] ปิด ModeBar และ Zoom เพื่อประสบการณ์ที่ดีบนมือถือ
             fig.update_layout(
                 xaxis_title=None, yaxis_title=y_title, legend_title=None,
                 hovermode="x unified", height=600, 
                 margin=dict(l=0, r=0, t=30, b=0),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
-            st.plotly_chart(fig, use_container_width=True)
+            
+            # ใส่ config ปิดเมนูซูม
+            st.plotly_chart(
+                fig, 
+                use_container_width=True,
+                config={
+                    'displayModeBar': False,  # ซ่อนแถบเครื่องมือด้านบน
+                    'scrollZoom': False,      # ห้ามใช้เมาส์/นิ้วซูมเข้าออก (ป้องกันกราฟขยับมั่ว)
+                    'showTips': False         # ปิด Tips ที่เด้งกวนใจ
+                }
+            )
     else: st.info("Select assets")
 
 # === RIGHT: Chat ===
