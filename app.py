@@ -62,7 +62,9 @@ def fetch_market_data(ticker):
         if df.empty: return None
         df.reset_index(inplace=True)
         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-        df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
+        
+        # [CRITICAL] Normalize date to remove time/timezone issues
+        df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None).dt.normalize()
         return df.sort_values('Date')
     except: return None
 
@@ -79,17 +81,19 @@ def get_ft_data_static():
         ("2025-01-01", 0.3672),  ("2025-05-01", 0.1972),  ("2025-09-01", 0.1572)
     ]
     df = pd.DataFrame(data, columns=["Date", "Close"])
-    df['Date'] = pd.to_datetime(df['Date'])
+    df['Date'] = pd.to_datetime(df['Date']).dt.normalize()
+    
     today = pd.Timestamp.now().normalize()
     if df['Date'].max() < today:
         new_row = pd.DataFrame({"Date": [today], "Close": [None]})
         df = pd.concat([df, new_row], ignore_index=True)
+        
     idx = pd.date_range(start=df.Date.min(), end=today)
     df = df.set_index('Date').reindex(idx).ffill().reset_index().rename(columns={'index': 'Date'})
     return df
 
 def get_data_point(df, target_date):
-    mask = df['Date'] <= pd.Timestamp(target_date)
+    mask = df['Date'] <= pd.Timestamp(target_date).normalize()
     if not mask.any(): return None, None
     row = df.loc[mask].iloc[-1]
     return row['Close'], row['Date']
@@ -124,6 +128,7 @@ col_dash, col_chat = st.columns([7, 3])
 with col_dash:
     thb_df = fetch_market_data("THB=X")
     
+    # Metrics
     cols = st.columns(len(ASSETS))
     summary_text = f"Market Data ({display_date}):\n"
     for idx, (name, conf) in enumerate(ASSETS.items()):
@@ -138,6 +143,7 @@ with col_dash:
                         prev = df.iloc[prev_idx]['Close'] if prev_idx >= 0 else price
                         pct = ((price - prev)/prev)*100 if prev!=0 else 0
                     except: pct = 0
+                    
                     unit = conf['unit']
                     if is_thb and conf['curr'] == 'USD' and thb_df is not None:
                         rate, _ = get_data_point(thb_df, p_date)
@@ -147,9 +153,9 @@ with col_dash:
                 else: st.metric(name, "No Data", "-")
             else: st.metric(name, "Error", "-")
 
+    # Graph Logic
     if sel_assets:
         chart_data = []
-        # Calculate start date exactly based on selection
         start_dt = (datetime.now() - timedelta(days=PERIODS[sel_period])).replace(hour=0, minute=0, second=0, microsecond=0)
         
         for name in sel_assets:
@@ -158,11 +164,15 @@ with col_dash:
             if df is not None:
                 sub = df[df['Date'] >= start_dt].copy()
                 
+                # [FIX] ROBUST CURRENCY CONVERSION (asof lookup)
                 if is_thb and conf['curr'] == 'USD' and thb_df is not None:
-                    sub = sub.sort_values('Date')
-                    thb_sorted = thb_df.sort_values('Date')
-                    merged = pd.merge_asof(sub, thb_sorted[['Date', 'Close']], on='Date', direction='backward', suffixes=('', '_R'))
-                    sub['Close'] = sub['Close'] * merged['Close_R']
+                    # สร้าง Reference Table ของค่าเงิน (เรียงวันที่ + Forward Fill)
+                    thb_lookup = thb_df.set_index('Date')['Close'].sort_index().ffill()
+                    
+                    # ใช้ .asof() เพื่อดึงเรทของ "วันนั้น หรือ วันก่อนหน้า" มาใส่ (แก้ปัญหากราฟหาย)
+                    # ถ้าวันไหนไม่มีเรท มันจะเอาเรทของเมื่อวานมาใช้ให้เอง
+                    rates = thb_lookup.asof(sub['Date'])
+                    sub['Close'] = sub['Close'] * rates.values
                 
                 label = name
                 if is_norm:
@@ -170,7 +180,6 @@ with col_dash:
                     if mx != 0 and not pd.isna(mx): sub['Close'] /= mx; label = f"{name} (Norm)"
                 
                 sub['Asset'] = label
-                sub = sub.dropna(subset=['Close'])
                 chart_data.append(sub[['Date', 'Close', 'Asset']])
         
         if chart_data:
@@ -191,9 +200,7 @@ with col_dash:
                 legend=dict(orientation="h", y=1.02, x=1, xanchor="right"),
                 dragmode=False
             )
-            
-            # [FIX] Force X-Axis Range to match Timeframe Selection
-            # This ensures zooming works even if the Red Line is outside the view
+            # Force X-Axis to Match Selection
             fig.update_xaxes(fixedrange=True, range=[start_dt, datetime.now()])
             fig.update_yaxes(fixedrange=True, range=[y_min - padding, y_max + padding])
             
