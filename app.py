@@ -20,7 +20,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed" 
 )
 
-# --- CSS ปรับแต่ง (Dashboard Mode: Lock Screen + Fix Overlap) ---
+# --- CSS ปรับแต่ง (Responsive Mobile Fix) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap');
@@ -28,27 +28,26 @@ st.markdown("""
     html, body, [class*="css"] {
         font-family: 'Prompt', sans-serif;
         color: #333; 
-        overflow: hidden; /* 🔒 Lock Screen */
+        overflow: hidden; 
     }
     .stApp { background-color: #ffffff; }
 
-    /* [FIX] Top Bar: เพิ่ม padding-right เพื่อหลบปุ่ม Streamlit */
+    /* --- Top Bar (Default Desktop) --- */
     .gemini-bar {
-        position: fixed; top: 0; left: 0; width: 100%; height: 60px;
+        position: fixed; top: 0; left: 0; width: 100%; height: 64px;
         background-color: #ffffff; border-bottom: 1px solid #dadce0;
-        z-index: 99999; display: flex; align-items: center;
+        z-index: 99999; 
+        display: flex; 
+        align-items: center;
+        justify-content: space-between; /* ชิดซ้าย-ขวา */
         
-        /* เว้นซ้ายไว้ให้ปุ่ม Hamburger */
-        padding-left: 80px; 
-        
-        /* [สำคัญ] เว้นขวาไว้ 200px เพื่อไม่ให้ทับปุ่ม Deploy/Menu */
-        padding-right: 200px; 
+        padding-left: 80px;  /* เว้นซ้ายให้ Hamburger */
+        padding-right: 200px; /* เว้นขวาให้ปุ่ม Deploy บนคอม */
         
         font-size: 20px; font-weight: 600; color: #1f1f1f;
-        justify-content: space-between;
     }
     
-    /* วันที่ใน Top Bar */
+    /* Badge วันที่ (Desktop) */
     .date-badge {
         font-size: 14px;
         color: #5f6368;
@@ -56,11 +55,47 @@ st.markdown("""
         padding: 5px 12px;
         border-radius: 20px;
         font-weight: 400;
-        white-space: nowrap; /* ห้ามตัดบรรทัด */
+        white-space: nowrap;
     }
 
+    /* --- [NEW] Mobile Responsive Fix (จอมือถือ) --- */
+    @media (max-width: 600px) {
+        .gemini-bar {
+            padding-left: 60px; /* ลดที่เว้นซ้าย */
+            padding-right: 10px; /* ลดที่เว้นขวา */
+            flex-direction: column; /* เรียงแนวตั้ง (ชื่ออยู่บน วันที่อยู่ล่าง) */
+            align-items: flex-start; /* ชิดซ้ายทั้งคู่ */
+            justify-content: center;
+            gap: 2px;
+            height: auto; /* ให้ความสูงยืดหดได้ */
+            min-height: 60px;
+            padding-top: 5px;
+            padding-bottom: 5px;
+        }
+        
+        /* ชื่อแอพบนมือถือ */
+        .gemini-bar span:first-child {
+            font-size: 18px;
+            line-height: 1.2;
+        }
+
+        /* วันที่บนมือถือ (ย้ายมาอยู่ซ้าย และตัวเล็กลง) */
+        .date-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            background-color: #f1f3f4; /* พื้นหลังจางๆ */
+            margin-top: 2px;
+        }
+        
+        /* ดันเนื้อหาลงมาอีกหน่อย เพราะ Top Bar อาจจะสูงขึ้น */
+        .main .block-container { 
+            padding-top: 85px !important; 
+        }
+    }
+    /* ----------------------------------------- */
+
     .main .block-container { 
-        padding-top: 70px !important; 
+        padding-top: 80px !important; 
         padding-bottom: 0 !important;
         padding-left: 1rem !important;
         padding-right: 1rem !important;
@@ -81,7 +116,6 @@ st.markdown("""
         display: flex; flex-direction: column; justify-content: flex-end;
     }
 
-    /* Metrics */
     div[data-testid="stMetric"] {
         background-color: #f8f9fa; border: 1px solid #eee;
         padding: 8px; border-radius: 6px; text-align: center;
@@ -129,12 +163,10 @@ def get_ft_data(period_days=365):
     date_range = pd.date_range(start=df_ft['Date'].min(), end=datetime.now())
     df_daily = pd.DataFrame(date_range, columns=['Date'])
     df_merged = pd.merge_asof(df_daily, df_ft, on='Date', direction='backward')
-    
     today = datetime.now()
     start_date = today - timedelta(days=period_days)
     df_filtered = df_merged[df_merged['Date'] >= start_date].copy()
     df_filtered.rename(columns={'Ft': 'Close'}, inplace=True)
-    
     df_full = df_merged.copy() 
     df_full.rename(columns={'Ft': 'Close'}, inplace=True)
     return df_filtered, df_full
