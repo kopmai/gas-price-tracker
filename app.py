@@ -63,8 +63,8 @@ def fetch_market_data(ticker):
         df.reset_index(inplace=True)
         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
         
-        # [CRITICAL FIX] Ensure pure datetime without timezone
-        df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
+        # Clean Date to Midnight (Crucial for matching)
+        df['Date'] = pd.to_datetime(df['Date']).dt.normalize()
         return df.sort_values('Date')
     except: return None
 
@@ -81,14 +81,21 @@ def get_ft_data_static():
         ("2025-01-01", 0.3672),  ("2025-05-01", 0.1972),  ("2025-09-01", 0.1572)
     ]
     df = pd.DataFrame(data, columns=["Date", "Close"])
-    df['Date'] = pd.to_datetime(df['Date'])
-    # Fill forward to today
-    idx = pd.date_range(start=df.Date.min(), end=datetime.now())
+    df['Date'] = pd.to_datetime(df['Date']).dt.normalize()
+    
+    # Extend Ft to future (today) using forward fill
+    today = datetime.now().normalize()
+    if df['Date'].max() < today:
+        new_row = pd.DataFrame({"Date": [today], "Close": [None]})
+        df = pd.concat([df, new_row], ignore_index=True)
+        
+    idx = pd.date_range(start=df.Date.min(), end=today)
     df = df.set_index('Date').reindex(idx).ffill().reset_index().rename(columns={'index': 'Date'})
     return df
 
 def get_data_point(df, target_date):
-    mask = df['Date'] <= pd.Timestamp(target_date)
+    ts = pd.Timestamp(target_date).normalize()
+    mask = df['Date'] <= ts
     if not mask.any(): return None, None
     row = df.loc[mask].iloc[-1]
     return row['Close'], row['Date']
@@ -123,6 +130,7 @@ col_dash, col_chat = st.columns([7, 3])
 with col_dash:
     thb_df = fetch_market_data("THB=X")
     
+    # Metrics
     cols = st.columns(len(ASSETS))
     summary_text = f"Market Data ({display_date}):\n"
     for idx, (name, conf) in enumerate(ASSETS.items()):
@@ -137,6 +145,7 @@ with col_dash:
                         prev = df.iloc[prev_idx]['Close'] if prev_idx >= 0 else price
                         pct = ((price - prev)/prev)*100 if prev!=0 else 0
                     except: pct = 0
+                    
                     unit = conf['unit']
                     if is_thb and conf['curr'] == 'USD' and thb_df is not None:
                         rate, _ = get_data_point(thb_df, p_date)
@@ -146,34 +155,44 @@ with col_dash:
                 else: st.metric(name, "No Data", "-")
             else: st.metric(name, "Error", "-")
 
+    # Graph Logic (FIXED for THB Conversion)
     if sel_assets:
         chart_data = []
-        start_dt = datetime.now() - timedelta(days=PERIODS[sel_period])
+        start_dt = (datetime.now() - timedelta(days=PERIODS[sel_period])).replace(hour=0, minute=0, second=0, microsecond=0)
         
         for name in sel_assets:
             conf = ASSETS[name]
             df = get_ft_data_static() if conf["type"] == "manual" else fetch_market_data(conf["ticker"])
+            
             if df is not None:
                 sub = df[df['Date'] >= start_dt].copy()
+                sub = sub.set_index('Date') # ใช้ Index จัดการง่ายกว่า
                 
-                # Convert Logic
+                # [CRITICAL FIX] Convert using Index Mapping (Robust against missing dates)
                 if is_thb and conf['curr'] == 'USD' and thb_df is not None:
-                    sub = sub.sort_values('Date')
-                    thb_sorted = thb_df.sort_values('Date')
-                    merged = pd.merge_asof(sub, thb_sorted[['Date', 'Close']], on='Date', direction='backward', suffixes=('', '_R'))
-                    sub['Close'] = sub['Close'] * merged['Close_R']
+                    thb_indexed = thb_df.set_index('Date')
+                    # สร้าง Rate Column โดย map วันที่ ถ้าไม่เจอให้เอาวันก่อนหน้า (ffill)
+                    sub['Rate'] = thb_indexed['Close'].reindex(sub.index, method='ffill')
+                    sub['Close'] = sub['Close'] * sub['Rate']
                 
+                sub = sub.reset_index() # คืนค่า Index เพื่อส่งให้ Plotly
+                
+                # Normalize Logic
                 label = name
                 if is_norm:
                     mx = sub['Close'].max()
-                    if mx != 0: sub['Close'] /= mx; label = f"{name} (Norm)"
+                    if mx != 0 and not pd.isna(mx): 
+                        sub['Close'] /= mx
+                        label = f"{name} (Norm)"
                 
                 sub['Asset'] = label
-                # อย่าเพิ่ง dropna() ตรงนี้ เพราะเราอยากให้ connectgaps ทำงาน
+                sub = sub.dropna(subset=['Close']) # ลบค่าว่างทิ้ง
                 chart_data.append(sub[['Date', 'Close', 'Asset']])
         
         if chart_data:
             final_df = pd.concat(chart_data)
+            
+            # Auto-Scale Logic
             y_vals = final_df['Close']
             y_min, y_max = y_vals.min(), y_vals.max()
             if pd.isna(y_max): y_max = 1
@@ -181,9 +200,7 @@ with col_dash:
             padding = (y_max - y_min) * 0.1 if y_max != y_min else (y_max * 0.1 if y_max !=0 else 1.0)
             
             fig = px.line(final_df, x='Date', y='Close', color='Asset', template="plotly_white")
-            
-            # [FIX] Connect Gaps: สั่งให้ลากเส้นเชื่อมจุดที่ข้อมูลหาย
-            fig.update_traces(connectgaps=True) 
+            fig.update_traces(connectgaps=True) # ลากเส้นเชื่อมจุดที่หาย
             
             fig.add_vline(x=datetime.combine(target_date, datetime.min.time()).timestamp() * 1000, line_dash="dash", line_color="red")
             
