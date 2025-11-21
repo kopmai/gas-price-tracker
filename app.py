@@ -6,11 +6,11 @@ from openai import OpenAI
 from datetime import datetime, timedelta
 
 # --- 0. API KEY ---
-# ใส่ Key ของคุณ หรือใช้ st.secrets
+# ลองดึงจาก Secrets ของระบบก่อน (สำหรับตอน Deploy)
 if "GROQ_API_KEY" in st.secrets:
     GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 else:
-    
+    GROQ_API_KEY = "" # ถ้าไม่มี ให้ไปรอรับจาก Sidebar หรือปล่อยว่าง
 
 # --- 1. ตั้งค่าหน้าเว็บ ---
 st.set_page_config(
