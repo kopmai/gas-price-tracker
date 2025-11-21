@@ -62,8 +62,6 @@ def fetch_market_data(ticker):
         if df.empty: return None
         df.reset_index(inplace=True)
         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-        
-        # Ensure pure datetime without timezone
         df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
         return df.sort_values('Date')
     except: return None
@@ -82,14 +80,10 @@ def get_ft_data_static():
     ]
     df = pd.DataFrame(data, columns=["Date", "Close"])
     df['Date'] = pd.to_datetime(df['Date'])
-    
-    # [FIXED HERE] Use pd.Timestamp.now().normalize() instead of datetime.now().normalize()
     today = pd.Timestamp.now().normalize()
-    
     if df['Date'].max() < today:
         new_row = pd.DataFrame({"Date": [today], "Close": [None]})
         df = pd.concat([df, new_row], ignore_index=True)
-        
     idx = pd.date_range(start=df.Date.min(), end=today)
     df = df.set_index('Date').reindex(idx).ffill().reset_index().rename(columns={'index': 'Date'})
     return df
@@ -144,7 +138,6 @@ with col_dash:
                         prev = df.iloc[prev_idx]['Close'] if prev_idx >= 0 else price
                         pct = ((price - prev)/prev)*100 if prev!=0 else 0
                     except: pct = 0
-                    
                     unit = conf['unit']
                     if is_thb and conf['curr'] == 'USD' and thb_df is not None:
                         rate, _ = get_data_point(thb_df, p_date)
@@ -156,28 +149,25 @@ with col_dash:
 
     if sel_assets:
         chart_data = []
+        # Calculate start date exactly based on selection
         start_dt = (datetime.now() - timedelta(days=PERIODS[sel_period])).replace(hour=0, minute=0, second=0, microsecond=0)
         
         for name in sel_assets:
             conf = ASSETS[name]
             df = get_ft_data_static() if conf["type"] == "manual" else fetch_market_data(conf["ticker"])
-            
             if df is not None:
                 sub = df[df['Date'] >= start_dt].copy()
-                sub = sub.set_index('Date')
                 
                 if is_thb and conf['curr'] == 'USD' and thb_df is not None:
-                    thb_indexed = thb_df.set_index('Date')
-                    sub['Rate'] = thb_indexed['Close'].reindex(sub.index, method='ffill')
-                    sub['Close'] = sub['Close'] * sub['Rate']
+                    sub = sub.sort_values('Date')
+                    thb_sorted = thb_df.sort_values('Date')
+                    merged = pd.merge_asof(sub, thb_sorted[['Date', 'Close']], on='Date', direction='backward', suffixes=('', '_R'))
+                    sub['Close'] = sub['Close'] * merged['Close_R']
                 
-                sub = sub.reset_index()
                 label = name
                 if is_norm:
                     mx = sub['Close'].max()
-                    if mx != 0 and not pd.isna(mx): 
-                        sub['Close'] /= mx
-                        label = f"{name} (Norm)"
+                    if mx != 0 and not pd.isna(mx): sub['Close'] /= mx; label = f"{name} (Norm)"
                 
                 sub['Asset'] = label
                 sub = sub.dropna(subset=['Close'])
@@ -193,7 +183,6 @@ with col_dash:
             
             fig = px.line(final_df, x='Date', y='Close', color='Asset', template="plotly_white")
             fig.update_traces(connectgaps=True)
-            
             fig.add_vline(x=datetime.combine(target_date, datetime.min.time()).timestamp() * 1000, line_dash="dash", line_color="red")
             
             fig.update_layout(
@@ -202,8 +191,12 @@ with col_dash:
                 legend=dict(orientation="h", y=1.02, x=1, xanchor="right"),
                 dragmode=False
             )
+            
+            # [FIX] Force X-Axis Range to match Timeframe Selection
+            # This ensures zooming works even if the Red Line is outside the view
+            fig.update_xaxes(fixedrange=True, range=[start_dt, datetime.now()])
             fig.update_yaxes(fixedrange=True, range=[y_min - padding, y_max + padding])
-            fig.update_xaxes(fixedrange=True)
+            
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'scrollZoom': False, 'showTips': False})
     else: st.info("Select assets")
 
