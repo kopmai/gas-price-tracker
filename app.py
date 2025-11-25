@@ -81,7 +81,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (FONT & BUTTON FIX COMBINED) ---
+# --- 5. CSS (FIX BROKEN ICON TEXT) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -102,37 +102,42 @@ st.markdown(f"""
     
     .stApp {{ background-color: {bg_color}; overflow: hidden; }}
     
-    /* --- [FIXED] Button Icon --- */
-    /* 1. จัด Style ปุ่มให้เป็นวงกลม */
+    /* --- [FIX] BROKEN TEXT ICON --- */
     [data-testid="stSidebarCollapsedControl"] {{
         z-index: 100000 !important; 
         background-color: {topbar_bg} !important; 
         border-radius: 50%; width: 40px; height: 40px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15); 
-        border: 1px solid {border_color}; 
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid {border_color}; 
         top: 10px !important; left: 15px !important;
         display: flex !important; align-items: center !important; justify-content: center !important;
+        
+        /* ใบ้เสียงตัวหนังสือเดิม (สำคัญมาก!) */
+        color: transparent !important; 
+        font-size: 0 !important;
+        line-height: 0 !important;
     }}
     
-    /* 2. [สำคัญ] ซ่อนไส้ในเดิมทิ้งให้หมด (ไม่ให้ Font Kanit ไปกระทบ) */
+    /* ซ่อนลูกหลานเดิมทั้งหมด (SVG/IMG) */
     [data-testid="stSidebarCollapsedControl"] > * {{
         display: none !important;
     }}
     
-    /* 3. ใส่ไอคอนใหม่ด้วย ::after */
+    /* เสกไอคอนใหม่ */
     [data-testid="stSidebarCollapsedControl"]::after {{ 
-        content: "⚙️"; 
+        content: "⚙️" !important; 
         font-size: 22px !important; 
-        margin-bottom: 3px;
+        color: {text_color} !important; /* คืนสีให้ไอคอน */
+        visibility: visible !important;
         display: block !important;
+        line-height: normal !important;
     }}
     
     [data-testid="stSidebarCollapsedControl"]:hover {{ 
         transform: rotate(45deg); transition: transform 0.3s ease; opacity: 0.8; 
     }}
-    /* -------------------------- */
+    /* ------------------------------ */
 
-    /* Dropdowns & Calendar */
+    /* Dropdown & Calendar */
     div[data-baseweb="popover"] > div, div[data-baseweb="menu"], ul[data-baseweb="menu"] {{
         background-color: {input_bg} !important; border: 1px solid {border_color};
     }}
@@ -142,8 +147,10 @@ st.markdown(f"""
     ul[data-baseweb="menu"] li[aria-selected="true"] {{
         background-color: #ff4b4b !important; color: white !important;
     }}
-    div[data-baseweb="calendar"] {{ background-color: {input_bg} !important; }}
-    
+    div[data-baseweb="calendar"] {{ background-color: {input_bg} !important; color: {text_color} !important; }}
+    div[data-baseweb="calendar"] div {{ color: {text_color} !important; }}
+    div[data-baseweb="calendar"] div[aria-label]:hover {{ background-color: #ff4b4b !important; color: white !important; cursor: pointer; }}
+
     /* Sidebar */
     section[data-testid="stSidebar"] {{ background-color: {bg_color} !important; border-right: 1px solid {border_color}; }}
     [data-testid="stSidebar"] button {{
@@ -157,8 +164,7 @@ st.markdown(f"""
     .stMultiSelect div[data-baseweb="select"] > div {{
         color: {text_color} !important; background-color: {input_bg} !important; border-color: {border_color} !important;
     }}
-    
-    /* Toggle */
+    .stDateInput input {{ color: {text_color} !important; }}
     [data-testid="stCheckbox"] label {{ opacity: 1 !important; font-weight: 500; }}
 
     /* Top Bar */
@@ -168,7 +174,7 @@ st.markdown(f"""
         display: flex; align-items: center; justify-content: space-between;
         padding: 0 200px 0 80px;
     }}
-    .gemini-bar span {{ font-weight: 600; font-size: 20px; }}
+    .gemini-bar span {{ font-weight: 600; font-size: 20px; font-family: 'Kanit', sans-serif !important; }}
     .date-badge {{ 
         font-size: 14px; color: {text_color}; background: {'#333' if is_dark else '#f1f3f4'}; 
         padding: 4px 12px; border-radius: 20px; font-weight: 400; border: 1px solid {border_color};
@@ -184,10 +190,10 @@ st.markdown(f"""
         background-color: {card_bg}; border: 1px solid {border_color}; border-radius: 10px; padding: 15px 10px; text-align: center;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; gap: 2px;
     }}
-    .card-title {{ font-size: 12px; opacity: 0.7; margin-bottom: 2px; }}
-    .card-price {{ font-size: 22px; font-weight: 600; line-height: 1.2; }}
-    .card-unit  {{ font-size: 13px; opacity: 0.9; margin-bottom: 5px; }}
-    .card-delta {{ font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 12px; display: inline-block; }}
+    .card-title {{ font-size: 12px; opacity: 0.7; margin-bottom: 2px; font-family: 'Kanit', sans-serif !important; }}
+    .card-price {{ font-size: 22px; font-weight: 600; line-height: 1.2; font-family: 'Kanit', sans-serif !important; }}
+    .card-unit  {{ font-size: 13px; opacity: 0.9; margin-bottom: 5px; font-family: 'Kanit', sans-serif !important; }}
+    .card-delta {{ font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 12px; display: inline-block; font-family: 'Kanit', sans-serif !important; }}
     
     .delta-pos {{ color: #00cc66 !important; background: rgba(0,204,102,0.15); }}
     .delta-neg {{ color: #ff4d4d !important; background: rgba(255,77,77,0.15); }}
@@ -231,15 +237,16 @@ with col_dash:
                 if price is not None and not pd.isna(price):
                     try:
                         curr_idx = df[df['Date'] == p_date].index[0]
+                        
                         prev_idx = curr_idx - 1
                         prev = df.iloc[prev_idx]['Close'] if prev_idx >= 0 else price
-                        pct = ((price - prev)/prev)*100 if prev!=0 else 0
+                        pct_1d = ((price - prev)/prev)*100 if prev!=0 else 0
                         
                         idx_1y = max(0, curr_idx - 252)
                         price_1y = df.iloc[idx_1y]['Close']
                         pct_yoy = ((price - price_1y)/price_1y)*100 if price_1y!=0 else 0
                     except: 
-                        pct = 0
+                        pct_1d = 0
                         pct_yoy = 0
                     
                     unit = conf['unit']
@@ -255,18 +262,18 @@ with col_dash:
                                     price *= rate
                                     unit = unit.replace("$", "Baht")
 
-                    delta_class = "delta-pos" if pct > 0 else ("delta-neg" if pct < 0 else "delta-neu")
-                    arrow = "▲" if pct > 0 else ("▼" if pct < 0 else "•")
+                    delta_class = "delta-pos" if pct_1d > 0 else ("delta-neg" if pct_1d < 0 else "delta-neu")
+                    arrow = "▲" if pct_1d > 0 else ("▼" if pct_1d < 0 else "•")
                     
                     card_html = f"""
                     <div class="custom-card">
                         <div class="card-title">{name}</div>
                         <div class="card-price">{price:,.2f}</div>
                         <div class="card-unit">{unit}</div>
-                        <div><span class="card-delta {delta_class}">{arrow} {pct:+.2f}% (1D)</span></div>
+                        <div><span class="card-delta {delta_class}">{arrow} {pct_1d:+.2f}% (1D)</span></div>
                     </div>
                     """
-                    summary_text += f"- {name}: {price:.2f} {unit} (Change 1D: {pct:+.2f}%, YoY: {pct_yoy:+.2f}%)\n"
+                    summary_text += f"- {name}: {price:.2f} {unit} (Change 1D: {pct_1d:+.2f}%, YoY: {pct_yoy:+.2f}%)\n"
                 else:
                     card_html = f"""<div class="custom-card"><div class="card-title">{name}</div><div class="card-price">No Data</div></div>"""
             else:
