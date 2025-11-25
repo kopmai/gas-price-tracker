@@ -81,7 +81,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (SAFE FONT STRATEGY) ---
+# --- 5. CSS (STANDARD FONT - CLEAN & STABLE) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -91,26 +91,15 @@ input_bg = "#262730" if is_dark else "#ffffff"
 
 st.markdown(f"""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap');
-    
-    /* [SAFE FIX] Apply Kanit ONLY to text elements, NOT icons */
-    h1, h2, h3, h4, h5, h6, p, span, label, div, input, button, li, a {{
-        font-family: 'Kanit', sans-serif !important;
-        color: {text_color};
+    /* Standard Font Settings (System Default) */
+    html, body, [class*="css"], .stApp {{ 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol" !important;
+        color: {text_color} !important; 
+        overflow: hidden; 
     }}
+    .stApp {{ background-color: {bg_color}; }}
     
-    /* Exception: Material Icons (ปุ่มลูกศรเดิมของ Streamlit) */
-    .material-icons, .material-symbols-rounded {{
-        font-family: 'Material Icons' !important;
-    }}
-    
-    .stApp {{ background-color: {bg_color}; overflow: hidden; }}
-    
-    /* --- [REVERT BUTTON TO DEFAULT] --- */
-    /* ลบ CSS ที่ไปยุ่งกับปุ่มเปิดปิดเมนูออกทั้งหมด ปล่อยให้เป็นค่า Default ของ Streamlit */
-    /* เพราะถ้าเราไม่ไปยุ่งกับมัน มันจะแสดงเป็นลูกศรปกติที่สวยอยู่แล้วครับ */
-    
-    /* Dropdown & Calendar */
+    /* --- Dropdown & Calendar Fixes (Dark Mode) --- */
     div[data-baseweb="popover"] > div, div[data-baseweb="menu"], ul[data-baseweb="menu"] {{
         background-color: {input_bg} !important; border: 1px solid {border_color};
     }}
@@ -124,7 +113,7 @@ st.markdown(f"""
     div[data-baseweb="calendar"] div {{ color: {text_color} !important; }}
     div[data-baseweb="calendar"] div[aria-label]:hover {{ background-color: #ff4b4b !important; color: white !important; cursor: pointer; }}
 
-    /* Sidebar */
+    /* Sidebar Styling */
     section[data-testid="stSidebar"] {{ background-color: {bg_color} !important; border-right: 1px solid {border_color}; }}
     
     /* Reset Button */
@@ -140,10 +129,11 @@ st.markdown(f"""
         color: {text_color} !important; background-color: {input_bg} !important; border-color: {border_color} !important;
     }}
     .stDateInput input {{ color: {text_color} !important; }}
-    
-    /* Toggle */
     [data-testid="stCheckbox"] label {{ opacity: 1 !important; font-weight: 500; }}
     div[data-testid="stChatMessage"] * {{ color: {text_color} !important; }}
+    
+    /* Global Text */
+    h1, h2, h3, h4, h5, h6, p, label, span, li, div {{ color: {text_color} !important; }}
 
     /* Top Bar */
     .gemini-bar {{
@@ -152,7 +142,7 @@ st.markdown(f"""
         display: flex; align-items: center; justify-content: space-between;
         padding: 0 200px 0 80px;
     }}
-    .gemini-bar span {{ font-weight: 600; font-size: 20px; font-family: 'Kanit', sans-serif !important; }}
+    .gemini-bar span {{ font-weight: 600; font-size: 20px; }}
     .date-badge {{ 
         font-size: 14px; color: {text_color}; background: {'#333' if is_dark else '#f1f3f4'}; 
         padding: 4px 12px; border-radius: 20px; font-weight: 400; border: 1px solid {border_color};
@@ -168,10 +158,10 @@ st.markdown(f"""
         background-color: {card_bg}; border: 1px solid {border_color}; border-radius: 10px; padding: 15px 10px; text-align: center;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; gap: 2px;
     }}
-    .card-title {{ font-size: 12px; opacity: 0.7; margin-bottom: 2px; font-family: 'Kanit', sans-serif !important; }}
-    .card-price {{ font-size: 22px; font-weight: 600; line-height: 1.2; font-family: 'Kanit', sans-serif !important; }}
-    .card-unit  {{ font-size: 13px; opacity: 0.9; margin-bottom: 5px; font-family: 'Kanit', sans-serif !important; }}
-    .card-delta {{ font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 12px; display: inline-block; font-family: 'Kanit', sans-serif !important; }}
+    .card-title {{ font-size: 12px; opacity: 0.7; margin-bottom: 2px; }}
+    .card-price {{ font-size: 22px; font-weight: 600; line-height: 1.2; }}
+    .card-unit  {{ font-size: 13px; opacity: 0.9; margin-bottom: 5px; }}
+    .card-delta {{ font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 12px; display: inline-block; }}
     
     .delta-pos {{ color: #00cc66 !important; background: rgba(0,204,102,0.15); }}
     .delta-neg {{ color: #ff4d4d !important; background: rgba(255,77,77,0.15); }}
@@ -297,7 +287,7 @@ with col_dash:
             fig.add_vline(x=datetime.combine(target_date, datetime.min.time()).timestamp() * 1000, line_dash="dash", line_color="red")
             
             fig.update_layout(
-                font=dict(color=text_color, family="Kanit"),
+                font=dict(color=text_color),
                 margin=dict(l=0, r=0, t=30, b=0), height=600, hovermode="x unified",
                 xaxis_title=None, yaxis_title="Normalized" if is_norm else ("Price (USD)" if is_thb else "Price (THB)"),
                 legend=dict(orientation="h", y=1.02, x=1, xanchor="right"),
