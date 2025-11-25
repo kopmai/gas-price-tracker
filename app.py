@@ -81,7 +81,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (NUCLEAR FIX) ---
+# --- 5. CSS (DROPDOWN FIX V2) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -93,66 +93,79 @@ st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap');
     
-    html, body, [class*="css"], .stApp {{ font-family: 'Prompt', sans-serif; color: {text_color} !important; overflow: hidden; }}
+    html, body, [class*="css"], .stApp {{ 
+        font-family: 'Prompt', sans-serif; 
+        color: {text_color} !important; 
+        overflow: hidden; 
+    }}
     .stApp {{ background-color: {bg_color}; }}
     
-    /* --- [NUCLEAR FIX] Calendar & Dropdown Backgrounds --- */
-    
-    /* 1. Calendar Container (ถมดำทั้งกล่อง) */
-    div[data-baseweb="calendar"] {{
+    /* --- [FIXED] Dropdown & Popover Colors --- */
+    /* บังคับพื้นหลังของ Popover (กล่องเมนูที่เด้งออกมา) */
+    div[data-baseweb="popover"] > div {{
         background-color: {input_bg} !important;
         color: {text_color} !important;
+        border: 1px solid {border_color} !important;
     }}
     
-    /* 2. Calendar Header (เดือน/ปี) & Days (Mo,Tu...) */
-    div[data-baseweb="calendar"] div {{
-        color: {text_color} !important;
-    }}
-    
-    /* 3. Dropdown Menu Container (Timeframe) */
+    /* บังคับพื้นหลังของเมนูรายการ */
     ul[data-baseweb="menu"] {{
         background-color: {input_bg} !important;
     }}
     
-    /* 4. Dropdown Items */
+    /* บังคับรายการแต่ละตัว */
     ul[data-baseweb="menu"] li {{
         background-color: {input_bg} !important;
         color: {text_color} !important;
     }}
-    /* Hover state for menu items */
+    
+    /* Hover Effect */
     ul[data-baseweb="menu"] li[aria-selected="true"] {{
         background-color: #ff4b4b !important;
         color: white !important;
     }}
     
-    /* 5. Popover Container (กล่องแม่ของ Dropdown/Calendar) */
-    div[data-baseweb="popover"] > div {{
+    /* Calendar Fix (ซ้ำเพื่อความชัวร์) */
+    div[data-baseweb="calendar"] {{
         background-color: {input_bg} !important;
-        border: 1px solid {border_color};
+        color: {text_color} !important;
     }}
-    
-    /* ---------------------------------------------------- */
+    /* ---------------------------------------- */
 
-    section[data-testid="stSidebar"] {{ background-color: {bg_color} !important; border-right: 1px solid {border_color}; }}
-    
+    /* Sidebar Background */
+    section[data-testid="stSidebar"] {{
+        background-color: {bg_color} !important;
+        border-right: 1px solid {border_color};
+    }}
+
     /* Reset Button */
     [data-testid="stSidebar"] button {{
-        background-color: {input_bg} !important; color: {text_color} !important; border: 1px solid {border_color} !important; width: 100%;
+        background-color: {input_bg} !important;
+        color: {text_color} !important;
+        border: 1px solid {border_color} !important;
+        width: 100%;
     }}
-    [data-testid="stSidebar"] button:hover {{ border-color: #ff4b4b !important; color: #ff4b4b !important; }}
+    [data-testid="stSidebar"] button:hover {{
+        border-color: #ff4b4b !important;
+        color: #ff4b4b !important;
+    }}
 
-    /* Inputs Text Color */
+    /* Inputs */
     .stSelectbox div[data-baseweb="select"] > div,
     .stDateInput div[data-baseweb="input"],
     .stMultiSelect div[data-baseweb="select"] > div {{
-        color: {text_color} !important; background-color: {input_bg} !important; border-color: {border_color} !important;
+        color: {text_color} !important;
+        background-color: {input_bg} !important;
+        border-color: {border_color} !important;
     }}
     .stDateInput input {{ color: {text_color} !important; }}
     
+    /* Toggle & Text */
     [data-testid="stCheckbox"] label {{ opacity: 1 !important; font-weight: 500; }}
     div[data-testid="stChatMessage"] * {{ color: {text_color} !important; }}
     h1, h2, h3, h4, h5, h6, p, label, span, li, div {{ color: {text_color} !important; }}
 
+    /* Top Bar */
     .gemini-bar {{
         position: fixed; top: 0; left: 0; width: 100%; height: 60px;
         background: {topbar_bg}; border-bottom: 1px solid {border_color}; z-index: 99999;
@@ -161,7 +174,8 @@ st.markdown(f"""
     }}
     .gemini-bar span {{ font-weight: 600; font-size: 20px; }}
     .date-badge {{ 
-        font-size: 14px; color: {text_color}; background: {'#333' if is_dark else '#f1f3f4'}; 
+        font-size: 14px; color: {text_color}; 
+        background: {'#333' if is_dark else '#f1f3f4'}; 
         padding: 4px 12px; border-radius: 20px; font-weight: 400; border: 1px solid {border_color};
     }}
 
@@ -170,12 +184,16 @@ st.markdown(f"""
         border-radius: 50%; width: 40px; height: 40px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid {border_color}; 
         top: 10px !important; left: 15px !important;
-        display: flex; align-items: center; justify-content: center; color: {text_color} !important;
+        display: flex; align-items: center; justify-content: center;
+        color: {text_color} !important;
     }}
     [data-testid="stSidebarCollapsedControl"] svg {{ display: none !important; }}
     [data-testid="stSidebarCollapsedControl"]::after {{ content: "⚙️"; font-size: 22px; margin-bottom: 3px; }}
 
-    .main .block-container {{ padding-top: 65px !important; padding-left: 1rem !important; padding-right: 1rem !important; max-width: 100% !important; }}
+    .main .block-container {{ 
+        padding-top: 65px !important; 
+        padding-left: 1rem !important; padding-right: 1rem !important; max-width: 100% !important; 
+    }}
     .main .block-container h3 {{ margin-top: 0 !important; padding-top: 10px !important; }}
     
     div[data-testid="column"]:nth-of-type(1) {{ height: calc(100vh - 80px); overflow: hidden; padding-right: 15px; border-right: 1px solid {border_color}; }}
@@ -232,13 +250,19 @@ with col_dash:
                 if price is not None and not pd.isna(price):
                     try:
                         curr_idx = df[df['Date'] == p_date].index[0]
-                        # [IMPROVED] YoY Calculation
-                        idx_1y = max(0, curr_idx - 252) # approx 1 year trading days
-                        price_1y = df.iloc[idx_1y]['Close']
-                        yoy_pct = ((price - price_1y)/price_1y)*100 if price_1y!=0 else 0
                         
-                        pct = yoy_pct # Use YoY as main percentage
-                    except: pct = 0
+                        # --- [METRIC: 1 Day Change] ---
+                        prev_idx = curr_idx - 1
+                        prev = df.iloc[prev_idx]['Close'] if prev_idx >= 0 else price
+                        pct_1d = ((price - prev)/prev)*100 if prev!=0 else 0
+                        
+                        # --- [AI CONTEXT: YoY Change] ---
+                        idx_1y = max(0, curr_idx - 252)
+                        price_1y = df.iloc[idx_1y]['Close']
+                        pct_yoy = ((price - price_1y)/price_1y)*100 if price_1y!=0 else 0
+                    except: 
+                        pct_1d = 0
+                        pct_yoy = 0
                     
                     unit = conf['unit']
                     if not conf.get("is_ref"):
@@ -253,18 +277,18 @@ with col_dash:
                                     price *= rate
                                     unit = unit.replace("$", "Baht")
 
-                    delta_class = "delta-pos" if pct > 0 else ("delta-neg" if pct < 0 else "delta-neu")
-                    arrow = "▲" if pct > 0 else ("▼" if pct < 0 else "•")
+                    delta_class = "delta-pos" if pct_1d > 0 else ("delta-neg" if pct_1d < 0 else "delta-neu")
+                    arrow = "▲" if pct_1d > 0 else ("▼" if pct_1d < 0 else "•")
                     
                     card_html = f"""
                     <div class="custom-card">
                         <div class="card-title">{name}</div>
                         <div class="card-price">{price:,.2f}</div>
                         <div class="card-unit">{unit}</div>
-                        <div><span class="card-delta {delta_class}">{arrow} {pct:+.2f}% (YoY)</span></div>
+                        <div><span class="card-delta {delta_class}">{arrow} {pct_1d:+.2f}% (1D)</span></div>
                     </div>
                     """
-                    summary_text += f"- {name}: {price:.2f} {unit} (Change YoY: {pct:+.2f}%)\n"
+                    summary_text += f"- {name}: {price:.2f} {unit} (Change 1D: {pct_1d:+.2f}%, YoY: {pct_yoy:+.2f}%)\n"
                 else:
                     card_html = f"""<div class="custom-card"><div class="card-title">{name}</div><div class="card-price">No Data</div></div>"""
             else:
@@ -339,7 +363,6 @@ with col_chat:
     if not st.session_state.msgs and API_KEY:
         try:
             client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=API_KEY)
-            # [NEW] Prompt: YoY Comparison + Geopolitics
             prompt_text = f"""
             วิเคราะห์สถานการณ์ตลาดพลังงาน ณ วันที่ {display_date}:
             {summary_text}
@@ -372,7 +395,7 @@ with col_chat:
                 client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=API_KEY)
                 stream = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
-                    messages=[{"role": "system", "content": "You are a professional energy analyst. Answer in Thai."}, 
+                    messages=[{"role": "system", "content": "You are an Energy & Geopolitics Strategist. Answer in Thai. Be professional and concise."}, 
                               *[{"role": m["role"], "content": m["content"]} for m in st.session_state.msgs]], stream=True
                 )
                 st.session_state.msgs.append({"role": "assistant", "content": st.write_stream(stream)})
