@@ -40,7 +40,6 @@ def get_manual_data(data_type):
     source = ft_data if data_type == "ft" else pool_gas_data
     df = pd.DataFrame(source, columns=["Date", "Close"])
     df['Date'] = pd.to_datetime(df['Date']).dt.normalize()
-    
     today = pd.Timestamp.now().normalize()
     if df['Date'].max() < today:
         new_row = pd.DataFrame({"Date": [today], "Close": [None]})
@@ -78,90 +77,102 @@ with st.sidebar:
     sel_period = st.selectbox("⏳ Timeframe", list(PERIODS.keys()), index=4)
     st.divider()
     is_thb = st.toggle("🇺🇸 Show in USD", value=False)
-    # [FIX] Default Normalize = False
     is_norm = st.toggle("📏 Normalize (Max=1)", value=False) 
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (SUPER CONTRAST FIX) ---
+# --- 5. CSS (FIXED INPUTS & SPACING) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
-text_color = "#ffffff" if is_dark else "#333333"
-card_bg = "#1e1e1e" if is_dark else "#f8f9fa"
+text_color = "#ffffff" if is_dark else "#333333" 
+card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
 border_color = "#444" if is_dark else "#e9ecef"
 topbar_bg = "#161b22" if is_dark else "#ffffff"
+input_bg = "#262730" if is_dark else "#ffffff" # [FIX] Input Background Color
 
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap');
     
-    /* Force Font & Text Color Globally */
     html, body, [class*="css"], .stApp {{ 
         font-family: 'Prompt', sans-serif; 
         color: {text_color} !important; 
         overflow: hidden; 
     }}
-    
     .stApp {{ background-color: {bg_color}; }}
     
-    /* [FIX] Aggressive Text Coloring for Dark Mode */
-    /* บังคับหัวข้อ, ลาเบล, p, span ทุกอย่างให้เป็นสีตามธีม */
-    h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p {{
+    /* --- [FIX] Sidebar Inputs Readability --- */
+    /* Force text inside inputs to be white/black based on theme */
+    .stSelectbox div[data-baseweb="select"] > div,
+    .stDateInput input {{
+        color: {text_color} !important;
+        background-color: {input_bg} !important;
+        border-color: {border_color} !important;
+    }}
+    /* Force Dropdown menu items */
+    ul[data-baseweb="menu"] li {{
+        color: {text_color} !important;
+        background-color: {input_bg} !important;
+    }}
+    /* --------------------------------------- */
+
+    /* --- [FIX] Chat Text Visibility --- */
+    div[data-testid="stChatMessage"] * {{
         color: {text_color} !important;
     }}
-    
-    /* Sidebar Specifics */
-    [data-testid="stSidebar"] {{
-        background-color: {bg_color};
-        border-right: 1px solid {border_color};
-    }}
-    [data-testid="stSidebar"] * {{
-        color: {text_color} !important;
+    div[data-testid="stChatMessage"] {{
+        background-color: rgba(128,128,128,0.05); /* Slight bg for bubbles */
     }}
 
-    /* Top Bar */
+    /* Global Text Fix */
+    h1, h2, h3, h4, h5, h6, p, label, span, li {{ color: {text_color} !important; }}
+    
+    [data-testid="stSidebar"] {{ background-color: {bg_color}; border-right: 1px solid {border_color}; }}
+    [data-testid="stSidebar"] * {{ color: {text_color} !important; }}
+
     .gemini-bar {{
         position: fixed; top: 0; left: 0; width: 100%; height: 60px;
         background: {topbar_bg}; border-bottom: 1px solid {border_color}; z-index: 99999;
         display: flex; align-items: center; justify-content: space-between;
         padding: 0 200px 0 80px;
     }}
-    .gemini-bar span {{
-        color: {text_color} !important;
-        font-weight: 600; font-size: 20px;
-    }}
+    .gemini-bar span {{ font-weight: 600; font-size: 20px; }}
     .date-badge {{ 
-        font-size: 14px; color: {text_color} !important; 
-        background: {'#333' if is_dark else '#f1f3f4'}; 
+        font-size: 14px; background: {'#333' if is_dark else '#f1f3f4'}; 
         padding: 4px 12px; border-radius: 20px; font-weight: 400; border: 1px solid {border_color};
     }}
 
-    /* Sidebar Button */
     [data-testid="stSidebarCollapsedControl"] {{
         z-index: 100000 !important; background-color: {topbar_bg}; 
         border-radius: 50%; width: 40px; height: 40px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid {border_color}; 
         top: 10px !important; left: 15px !important;
         display: flex; align-items: center; justify-content: center;
-        color: {text_color} !important;
     }}
+    [data-testid="stSidebarCollapsedControl"] svg {{ display: none !important; }}
     [data-testid="stSidebarCollapsedControl"]::after {{ content: "⚙️"; font-size: 22px; margin-bottom: 3px; }}
+    [data-testid="stSidebarCollapsedControl"]:hover {{ transform: rotate(45deg); transition: transform 0.3s ease; opacity: 0.8; }}
 
-    /* Layout Adjustments */
-    .main .block-container {{ padding: 70px 1rem 0 1rem !important; max-width: 100% !important; }}
+    /* --- [FIX] Layout Spacing (Tighter Top) --- */
+    .main .block-container {{ 
+        padding-top: 65px !important; /* ลดจาก 80px -> 65px */
+        padding-left: 1rem !important; padding-right: 1rem !important; max-width: 100% !important; 
+    }}
+    /* Remove default top margin from the first header */
+    .main .block-container h3 {{
+        margin-top: 0 !important;
+        padding-top: 10px !important;
+    }}
+    
     div[data-testid="column"]:nth-of-type(1) {{ height: calc(100vh - 80px); overflow: hidden; padding-right: 15px; border-right: 1px solid {border_color}; }}
     div[data-testid="column"]:nth-of-type(2) {{ height: calc(100vh - 80px); overflow-y: auto; padding-left: 15px; display: flex; flex-direction: column; justify-content: flex-end; }}
     
-    /* Custom Card */
     .custom-card {{
-        background-color: {card_bg};
-        border: 1px solid {border_color};
-        border-radius: 10px; padding: 15px 10px; text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        display: flex; flex-direction: column; justify-content: center; gap: 2px;
+        background-color: {card_bg}; border: 1px solid {border_color}; border-radius: 10px; padding: 15px 10px; text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; gap: 2px;
     }}
-    .card-title {{ font-size: 12px; color: {text_color} !important; opacity: 0.7; margin-bottom: 2px; }}
-    .card-price {{ font-size: 22px; color: {text_color} !important; font-weight: 600; line-height: 1.2; }}
-    .card-unit  {{ font-size: 13px; color: {text_color} !important; opacity: 0.9; margin-bottom: 5px; }}
+    .card-title {{ font-size: 12px; opacity: 0.7; margin-bottom: 2px; }}
+    .card-price {{ font-size: 22px; font-weight: 600; line-height: 1.2; }}
+    .card-unit  {{ font-size: 13px; opacity: 0.9; margin-bottom: 5px; }}
     .card-delta {{ font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 12px; display: inline-block; }}
     
     .delta-pos {{ color: #00cc66 !important; background: rgba(0,204,102,0.15); }}
@@ -171,7 +182,7 @@ st.markdown(f"""
     .stChatInput {{ padding-bottom: 10px; z-index: 100; }}
     header[data-testid="stHeader"] {{ background: transparent; z-index: 100000; }}
     header .decoration {{ display: none; }}
-    button[kind="secondary"] {{ width: 100%; border: 1px solid {border_color}; color: {text_color} !important; }}
+    button[kind="secondary"] {{ width: 100%; border: 1px solid {border_color}; }}
     
     @media (max-width: 600px) {{
         .gemini-bar {{ padding: 5px 10px 5px 65px; flex-direction: column; align-items: flex-start; justify-content: center; height: auto; min-height: 60px; }}
@@ -215,11 +226,11 @@ with col_dash:
                     if not conf.get("is_ref"):
                         rate, _ = get_data_point(thb_df, p_date)
                         if rate:
-                            if is_thb: # Show USD
+                            if is_thb: 
                                 if conf['curr'] == "THB":
                                     price /= rate
                                     unit = unit.replace("Baht", "$").replace("บาท", "$")
-                            else: # Show THB (Default)
+                            else: 
                                 if conf['curr'] == "USD":
                                     price *= rate
                                     unit = unit.replace("$", "Baht")
@@ -262,9 +273,9 @@ with col_dash:
                     thb_lookup = thb_clean.set_index('Date')['Close'].sort_index().ffill()
                     rates = thb_lookup.asof(sub['Date'])
                     
-                    if is_thb: # USD Mode
+                    if is_thb: 
                         if conf['curr'] == "THB": sub['Close'] = sub['Close'] / rates.values
-                    else: # THB Mode
+                    else:
                         if conf['curr'] == "USD": sub['Close'] = sub['Close'] * rates.values
                 
                 label = name
@@ -289,9 +300,7 @@ with col_dash:
             fig.update_traces(connectgaps=True)
             fig.add_vline(x=datetime.combine(target_date, datetime.min.time()).timestamp() * 1000, line_dash="dash", line_color="red")
             
-            # [FIX] Font Color for Chart
             fig.update_layout(
-                font=dict(color=text_color), # Force Chart Text Color
                 margin=dict(l=0, r=0, t=30, b=0), height=600, hovermode="x unified",
                 xaxis_title=None, yaxis_title="Normalized" if is_norm else ("Price (USD)" if is_thb else "Price (THB)"),
                 legend=dict(orientation="h", y=1.02, x=1, xanchor="right"),
