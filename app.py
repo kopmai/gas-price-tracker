@@ -81,7 +81,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (KANIT + SYMBOL REPLACEMENT) ---
+# --- 5. CSS (SAFE FONT STRATEGY) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -91,46 +91,25 @@ input_bg = "#262730" if is_dark else "#ffffff"
 
 st.markdown(f"""
 <style>
-    /* Import Font */
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap');
     
-    /* Apply Font Globally (Except Icons) */
-    html, body, [class*="css"], .stApp, h1, h2, h3, h4, h5, h6, p, div, span, a, button, input, select, textarea, label, li {{ 
-        font-family: 'Kanit', sans-serif !important; 
-        color: {text_color} !important;
+    /* [SAFE FIX] Apply Kanit ONLY to text elements, NOT icons */
+    h1, h2, h3, h4, h5, h6, p, span, label, div, input, button, li, a {{
+        font-family: 'Kanit', sans-serif !important;
+        color: {text_color};
     }}
+    
+    /* Exception: Material Icons (ปุ่มลูกศรเดิมของ Streamlit) */
+    .material-icons, .material-symbols-rounded {{
+        font-family: 'Material Icons' !important;
+    }}
+    
     .stApp {{ background-color: {bg_color}; overflow: hidden; }}
     
-    /* --- [FIX] BUTTON TEXT REPLACEMENT --- */
-    [data-testid="stSidebarCollapsedControl"] {{
-        z-index: 100000 !important; 
-        background-color: {topbar_bg} !important; 
-        border-radius: 50%; width: 40px; height: 40px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15); 
-        border: 1px solid {border_color} !important; 
-        top: 10px !important; left: 15px !important;
-        display: flex !important; align-items: center !important; justify-content: center !important;
-        
-        /* [KEY] บีบขนาดฟอนต์เดิมให้หายไปเลย */
-        font-size: 0 !important;
-        color: transparent !important; 
-    }}
+    /* --- [REVERT BUTTON TO DEFAULT] --- */
+    /* ลบ CSS ที่ไปยุ่งกับปุ่มเปิดปิดเมนูออกทั้งหมด ปล่อยให้เป็นค่า Default ของ Streamlit */
+    /* เพราะถ้าเราไม่ไปยุ่งกับมัน มันจะแสดงเป็นลูกศรปกติที่สวยอยู่แล้วครับ */
     
-    /* ใส่สัญลักษณ์ >> แทน */
-    [data-testid="stSidebarCollapsedControl"]::after {{ 
-        content: "»";  /* ใช้สัญลักษณ์ลูกศรคู่ */
-        font-size: 24px !important; 
-        font-family: sans-serif !important; /* [KEY] บังคับใช้ฟอนต์ระบบ ไม่ใช้ Kanit */
-        color: {text_color} !important; 
-        margin-bottom: 4px; 
-        display: block !important;
-    }}
-    
-    [data-testid="stSidebarCollapsedControl"]:hover {{ 
-        transform: scale(1.1); transition: transform 0.2s ease; opacity: 0.9; 
-    }}
-    /* ------------------------------------ */
-
     /* Dropdown & Calendar */
     div[data-baseweb="popover"] > div, div[data-baseweb="menu"], ul[data-baseweb="menu"] {{
         background-color: {input_bg} !important; border: 1px solid {border_color};
@@ -147,6 +126,8 @@ st.markdown(f"""
 
     /* Sidebar */
     section[data-testid="stSidebar"] {{ background-color: {bg_color} !important; border-right: 1px solid {border_color}; }}
+    
+    /* Reset Button */
     [data-testid="stSidebar"] button {{
         background-color: {input_bg} !important; color: {text_color} !important; border: 1px solid {border_color} !important; width: 100%;
     }}
@@ -159,6 +140,8 @@ st.markdown(f"""
         color: {text_color} !important; background-color: {input_bg} !important; border-color: {border_color} !important;
     }}
     .stDateInput input {{ color: {text_color} !important; }}
+    
+    /* Toggle */
     [data-testid="stCheckbox"] label {{ opacity: 1 !important; font-weight: 500; }}
     div[data-testid="stChatMessage"] * {{ color: {text_color} !important; }}
 
@@ -203,7 +186,6 @@ st.markdown(f"""
         .gemini-bar {{ padding: 5px 10px 5px 65px; flex-direction: column; align-items: flex-start; justify-content: center; height: auto; min-height: 60px; }}
         .date-badge {{ font-size: 11px; margin-top: 2px; }}
         .main .block-container {{ padding-top: 85px !important; }}
-        [data-testid="stSidebarCollapsedControl"] {{ top: 10px !important; left: 10px !important; width: 35px; height: 35px; }}
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -238,9 +220,7 @@ with col_dash:
                         idx_1y = max(0, curr_idx - 252)
                         price_1y = df.iloc[idx_1y]['Close']
                         pct_yoy = ((price - price_1y)/price_1y)*100 if price_1y!=0 else 0
-                    except: 
-                        pct = 0
-                        pct_yoy = 0
+                    except: pct = 0; pct_yoy = 0
                     
                     unit = conf['unit']
                     if not conf.get("is_ref"):
