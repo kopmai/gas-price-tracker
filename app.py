@@ -81,7 +81,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (KANIT + BUTTON OVERLAY) ---
+# --- 5. CSS (KANIT + SYMBOL REPLACEMENT) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -91,42 +91,45 @@ input_bg = "#262730" if is_dark else "#ffffff"
 
 st.markdown(f"""
 <style>
-    /* 1. Load Font */
+    /* Import Font */
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap');
     
-    /* 2. Apply Font Safely (Exclude Icons) */
-    html, body, [class*="css"], p, div, h1, h2, h3, h4, h5, h6, span, button, input, label {{
-        font-family: 'Kanit', sans-serif !important;
-        color: {text_color};
+    /* Apply Font Globally (Except Icons) */
+    html, body, [class*="css"], .stApp, h1, h2, h3, h4, h5, h6, p, div, span, a, button, input, select, textarea, label, li {{ 
+        font-family: 'Kanit', sans-serif !important; 
+        color: {text_color} !important;
     }}
-    
     .stApp {{ background-color: {bg_color}; overflow: hidden; }}
-
-    /* --- [FIX] MENU BUTTON OVERLAY --- */
-    /* เทคนิคใหม่: ไม่ซ่อนของเก่า แต่เอาของใหม่วางทับมิดเลย */
+    
+    /* --- [FIX] BUTTON TEXT REPLACEMENT --- */
     [data-testid="stSidebarCollapsedControl"] {{
-        position: relative; /* ตั้งหลัก */
-        z-index: 100000 !important;
-        background-color: {topbar_bg} !important;
-        border: 1px solid {border_color} !important;
-        border-radius: 50%;
-        width: 40px; height: 40px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        z-index: 100000 !important; 
+        background-color: {topbar_bg} !important; 
+        border-radius: 50%; width: 40px; height: 40px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15); 
+        border: 1px solid {border_color} !important; 
         top: 10px !important; left: 15px !important;
-        color: transparent !important; /* ซ่อนตัวหนังสือข้างใน */
+        display: flex !important; align-items: center !important; justify-content: center !important;
+        
+        /* [KEY] บีบขนาดฟอนต์เดิมให้หายไปเลย */
+        font-size: 0 !important;
+        color: transparent !important; 
     }}
     
-    /* สร้างแผ่นไอคอนใหม่ แปะทับหน้าปุ่มเดิม */
-    [data-testid="stSidebarCollapsedControl"]::before {{
-        content: "☰"; /* Hamburger Menu Icon */
-        font-size: 24px;
-        color: {text_color};
-        position: absolute;
-        top: 50%; left: 50%;
-        transform: translate(-50%, -55%); /* จัดกึ่งกลาง */
-        pointer-events: none; /* ให้คลิกทะลุไปโดนปุ่มจริงได้ */
+    /* ใส่สัญลักษณ์ >> แทน */
+    [data-testid="stSidebarCollapsedControl"]::after {{ 
+        content: "»";  /* ใช้สัญลักษณ์ลูกศรคู่ */
+        font-size: 24px !important; 
+        font-family: sans-serif !important; /* [KEY] บังคับใช้ฟอนต์ระบบ ไม่ใช้ Kanit */
+        color: {text_color} !important; 
+        margin-bottom: 4px; 
+        display: block !important;
     }}
-    /* -------------------------------- */
+    
+    [data-testid="stSidebarCollapsedControl"]:hover {{ 
+        transform: scale(1.1); transition: transform 0.2s ease; opacity: 0.9; 
+    }}
+    /* ------------------------------------ */
 
     /* Dropdown & Calendar */
     div[data-baseweb="popover"] > div, div[data-baseweb="menu"], ul[data-baseweb="menu"] {{
@@ -232,11 +235,12 @@ with col_dash:
                         prev_idx = curr_idx - 1
                         prev = df.iloc[prev_idx]['Close'] if prev_idx >= 0 else price
                         pct = ((price - prev)/prev)*100 if prev!=0 else 0
-                        
                         idx_1y = max(0, curr_idx - 252)
                         price_1y = df.iloc[idx_1y]['Close']
                         pct_yoy = ((price - price_1y)/price_1y)*100 if price_1y!=0 else 0
-                    except: pct = 0; pct_yoy = 0
+                    except: 
+                        pct = 0
+                        pct_yoy = 0
                     
                     unit = conf['unit']
                     if not conf.get("is_ref"):
