@@ -81,7 +81,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (FIX BROKEN ICON TEXT) ---
+# --- 5. CSS (FINAL FIX V16) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -91,51 +91,45 @@ input_bg = "#262730" if is_dark else "#ffffff"
 
 st.markdown(f"""
 <style>
-    /* Import Font */
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap');
     
-    /* Global Font Apply */
-    html, body, [class*="css"], .stApp, h1, h2, h3, h4, h5, h6, p, div, span, a, button, input, select, textarea, label, li {{ 
+    html, body, [class*="css"], .stApp {{ 
         font-family: 'Kanit', sans-serif !important; 
-        color: {text_color} !important;
+        color: {text_color} !important; 
+        overflow: hidden; 
     }}
+    .stApp {{ background-color: {bg_color}; }}
     
-    .stApp {{ background-color: {bg_color}; overflow: hidden; }}
-    
-    /* --- [FIX] BROKEN TEXT ICON --- */
+    /* --- [NUCLEAR FIX] BUTTON TEXT HIDING --- */
     [data-testid="stSidebarCollapsedControl"] {{
         z-index: 100000 !important; 
         background-color: {topbar_bg} !important; 
         border-radius: 50%; width: 40px; height: 40px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid {border_color}; 
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15); 
+        border: 1px solid {border_color} !important; 
         top: 10px !important; left: 15px !important;
         display: flex !important; align-items: center !important; justify-content: center !important;
         
-        /* ใบ้เสียงตัวหนังสือเดิม (สำคัญมาก!) */
-        color: transparent !important; 
-        font-size: 0 !important;
-        line-height: 0 !important;
+        /* [KEY FIX] บีบขนาดฟอนต์ให้เหลือ 0 เพื่อซ่อน text */
+        font-size: 0px !important;
+        color: transparent !important;
+        overflow: hidden !important;
     }}
     
-    /* ซ่อนลูกหลานเดิมทั้งหมด (SVG/IMG) */
-    [data-testid="stSidebarCollapsedControl"] > * {{
-        display: none !important;
-    }}
-    
-    /* เสกไอคอนใหม่ */
+    /* เสกไอคอนใหม่ขึ้นมาแทน */
     [data-testid="stSidebarCollapsedControl"]::after {{ 
         content: "⚙️" !important; 
         font-size: 22px !important; 
         color: {text_color} !important; /* คืนสีให้ไอคอน */
-        visibility: visible !important;
         display: block !important;
-        line-height: normal !important;
+        opacity: 1 !important;
+        margin-top: -2px !important;
     }}
     
     [data-testid="stSidebarCollapsedControl"]:hover {{ 
         transform: rotate(45deg); transition: transform 0.3s ease; opacity: 0.8; 
     }}
-    /* ------------------------------ */
+    /* ---------------------------------------- */
 
     /* Dropdown & Calendar */
     div[data-baseweb="popover"] > div, div[data-baseweb="menu"], ul[data-baseweb="menu"] {{
@@ -151,8 +145,10 @@ st.markdown(f"""
     div[data-baseweb="calendar"] div {{ color: {text_color} !important; }}
     div[data-baseweb="calendar"] div[aria-label]:hover {{ background-color: #ff4b4b !important; color: white !important; cursor: pointer; }}
 
-    /* Sidebar */
+    /* Sidebar Background */
     section[data-testid="stSidebar"] {{ background-color: {bg_color} !important; border-right: 1px solid {border_color}; }}
+    
+    /* Reset Button */
     [data-testid="stSidebar"] button {{
         background-color: {input_bg} !important; color: {text_color} !important; border: 1px solid {border_color} !important; width: 100%;
     }}
@@ -165,7 +161,11 @@ st.markdown(f"""
         color: {text_color} !important; background-color: {input_bg} !important; border-color: {border_color} !important;
     }}
     .stDateInput input {{ color: {text_color} !important; }}
+    
+    /* Toggle & Text */
     [data-testid="stCheckbox"] label {{ opacity: 1 !important; font-weight: 500; }}
+    div[data-testid="stChatMessage"] * {{ color: {text_color} !important; }}
+    h1, h2, h3, h4, h5, h6, p, label, span, li, div {{ color: {text_color} !important; }}
 
     /* Top Bar */
     .gemini-bar {{
@@ -237,16 +237,15 @@ with col_dash:
                 if price is not None and not pd.isna(price):
                     try:
                         curr_idx = df[df['Date'] == p_date].index[0]
-                        
                         prev_idx = curr_idx - 1
                         prev = df.iloc[prev_idx]['Close'] if prev_idx >= 0 else price
-                        pct_1d = ((price - prev)/prev)*100 if prev!=0 else 0
+                        pct = ((price - prev)/prev)*100 if prev!=0 else 0
                         
                         idx_1y = max(0, curr_idx - 252)
                         price_1y = df.iloc[idx_1y]['Close']
                         pct_yoy = ((price - price_1y)/price_1y)*100 if price_1y!=0 else 0
                     except: 
-                        pct_1d = 0
+                        pct = 0
                         pct_yoy = 0
                     
                     unit = conf['unit']
@@ -262,18 +261,18 @@ with col_dash:
                                     price *= rate
                                     unit = unit.replace("$", "Baht")
 
-                    delta_class = "delta-pos" if pct_1d > 0 else ("delta-neg" if pct_1d < 0 else "delta-neu")
-                    arrow = "▲" if pct_1d > 0 else ("▼" if pct_1d < 0 else "•")
+                    delta_class = "delta-pos" if pct > 0 else ("delta-neg" if pct < 0 else "delta-neu")
+                    arrow = "▲" if pct > 0 else ("▼" if pct < 0 else "•")
                     
                     card_html = f"""
                     <div class="custom-card">
                         <div class="card-title">{name}</div>
                         <div class="card-price">{price:,.2f}</div>
                         <div class="card-unit">{unit}</div>
-                        <div><span class="card-delta {delta_class}">{arrow} {pct_1d:+.2f}% (1D)</span></div>
+                        <div><span class="card-delta {delta_class}">{arrow} {pct:+.2f}% (1D)</span></div>
                     </div>
                     """
-                    summary_text += f"- {name}: {price:.2f} {unit} (Change 1D: {pct_1d:+.2f}%, YoY: {pct_yoy:+.2f}%)\n"
+                    summary_text += f"- {name}: {price:.2f} {unit} (Change 1D: {pct:+.2f}%, YoY: {pct_yoy:+.2f}%)\n"
                 else:
                     card_html = f"""<div class="custom-card"><div class="card-title">{name}</div><div class="card-price">No Data</div></div>"""
             else:
