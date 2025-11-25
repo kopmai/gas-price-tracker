@@ -81,7 +81,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (DROPDOWN FIX V2) ---
+# --- 5. CSS (NEW FONT & NUCLEAR DROPDOWN FIX) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -91,46 +91,44 @@ input_bg = "#262730" if is_dark else "#ffffff"
 
 st.markdown(f"""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap');
+    /* --- [NEW FONT] Kanit (Modern Thai) --- */
+    @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap');
     
     html, body, [class*="css"], .stApp {{ 
-        font-family: 'Prompt', sans-serif; 
+        font-family: 'Kanit', sans-serif !important; 
         color: {text_color} !important; 
         overflow: hidden; 
     }}
     .stApp {{ background-color: {bg_color}; }}
     
-    /* --- [FIXED] Dropdown & Popover Colors --- */
-    /* บังคับพื้นหลังของ Popover (กล่องเมนูที่เด้งออกมา) */
-    div[data-baseweb="popover"] > div {{
-        background-color: {input_bg} !important;
-        color: {text_color} !important;
-        border: 1px solid {border_color} !important;
-    }}
-    
-    /* บังคับพื้นหลังของเมนูรายการ */
-    ul[data-baseweb="menu"] {{
+    /* --- [NUCLEAR FIX] Dropdown/Calendar Backgrounds --- */
+    /* บังคับทุกสิ่งที่เด้งออกมา (Popover) ให้เป็นสีเดียวกับ Input */
+    div[data-baseweb="popover"],
+    div[data-baseweb="popover"] > div,
+    div[data-baseweb="menu"],
+    div[data-baseweb="calendar"] {{
         background-color: {input_bg} !important;
     }}
     
-    /* บังคับรายการแต่ละตัว */
-    ul[data-baseweb="menu"] li {{
-        background-color: {input_bg} !important;
+    /* บังคับรายการข้างในให้สีตรงกัน */
+    ul[data-baseweb="menu"] li,
+    div[data-baseweb="calendar"] div {{
         color: {text_color} !important;
     }}
     
     /* Hover Effect */
-    ul[data-baseweb="menu"] li[aria-selected="true"] {{
+    ul[data-baseweb="menu"] li[aria-selected="true"],
+    div[data-baseweb="calendar"] div[aria-label]:hover {{
         background-color: #ff4b4b !important;
         color: white !important;
     }}
     
-    /* Calendar Fix (ซ้ำเพื่อความชัวร์) */
-    div[data-baseweb="calendar"] {{
+    /* Option Container (ตัวปัญหาที่ชอบเป็นสีขาว) */
+    li[role="option"] {{
         background-color: {input_bg} !important;
         color: {text_color} !important;
     }}
-    /* ---------------------------------------- */
+    /* ---------------------------------------------------- */
 
     /* Sidebar Background */
     section[data-testid="stSidebar"] {{
@@ -145,10 +143,7 @@ st.markdown(f"""
         border: 1px solid {border_color} !important;
         width: 100%;
     }}
-    [data-testid="stSidebar"] button:hover {{
-        border-color: #ff4b4b !important;
-        color: #ff4b4b !important;
-    }}
+    [data-testid="stSidebar"] button:hover {{ border-color: #ff4b4b !important; color: #ff4b4b !important; }}
 
     /* Inputs */
     .stSelectbox div[data-baseweb="select"] > div,
@@ -343,7 +338,7 @@ with col_dash:
             fig.add_vline(x=datetime.combine(target_date, datetime.min.time()).timestamp() * 1000, line_dash="dash", line_color="red")
             
             fig.update_layout(
-                font=dict(color=text_color),
+                font=dict(color=text_color, family="Kanit"), # Force Kanit in Chart
                 margin=dict(l=0, r=0, t=30, b=0), height=600, hovermode="x unified",
                 xaxis_title=None, yaxis_title="Normalized" if is_norm else ("Price (USD)" if is_thb else "Price (THB)"),
                 legend=dict(orientation="h", y=1.02, x=1, xanchor="right"),
