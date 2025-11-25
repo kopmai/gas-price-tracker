@@ -81,7 +81,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (BUTTON FIX) ---
+# --- 5. CSS (DROPDOWN FIX & AI THEME) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -93,34 +93,46 @@ st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap');
     
-    html, body, [class*="css"], .stApp {{ 
-        font-family: 'Prompt', sans-serif; 
-        color: {text_color} !important; 
-        overflow: hidden; 
-    }}
+    html, body, [class*="css"], .stApp {{ font-family: 'Prompt', sans-serif; color: {text_color} !important; overflow: hidden; }}
     .stApp {{ background-color: {bg_color}; }}
     
+    /* --- [FIX] Dropdown Menu Visibility --- */
+    /* กล่อง Dropdown ที่เด้งออกมา */
+    div[data-baseweb="popover"] > div {{
+        background-color: {input_bg} !important;
+        border: 1px solid {border_color};
+    }}
+    
+    /* รายการใน Dropdown */
+    ul[data-baseweb="menu"] li {{
+        background-color: {input_bg} !important;
+        color: {text_color} !important;
+    }}
+    
+    /* ตอนเอาเมาส์ชี้ (Hover) */
+    ul[data-baseweb="menu"] li[aria-selected="true"] {{
+        background-color: #ff4b4b !important; /* สีแดง Streamlit */
+        color: white !important;
+    }}
+    /* ------------------------------------- */
+
     /* Sidebar Background */
     section[data-testid="stSidebar"] {{
         background-color: {bg_color} !important;
         border-right: 1px solid {border_color};
     }}
 
-    /* --- [FIXED] Reset Button Style --- */
-    /* บังคับพื้นหลังปุ่มให้เป็นสีเดียวกับ Input (สีเทาเข้มใน Dark Mode) */
+    /* Reset Button */
     [data-testid="stSidebar"] button {{
         background-color: {input_bg} !important;
         color: {text_color} !important;
         border: 1px solid {border_color} !important;
         width: 100%;
-        transition: all 0.3s ease;
     }}
     [data-testid="stSidebar"] button:hover {{
         border-color: #ff4b4b !important;
         color: #ff4b4b !important;
-        background-color: {input_bg} !important; /* คงพื้นหลังไว้ตอน Hover */
     }}
-    /* ---------------------------------- */
 
     /* Inputs */
     .stSelectbox div[data-baseweb="select"] > div,
@@ -131,11 +143,7 @@ st.markdown(f"""
         border-color: {border_color} !important;
     }}
     .stDateInput input {{ color: {text_color} !important; }}
-    ul[data-baseweb="menu"] li {{
-        background-color: {input_bg} !important;
-        color: {text_color} !important;
-    }}
-
+    
     /* Toggle & Text */
     [data-testid="stCheckbox"] label {{ opacity: 1 !important; font-weight: 500; }}
     div[data-testid="stChatMessage"] * {{ color: {text_color} !important; }}
@@ -155,7 +163,6 @@ st.markdown(f"""
         padding: 4px 12px; border-radius: 20px; font-weight: 400; border: 1px solid {border_color};
     }}
 
-    /* Sidebar Button */
     [data-testid="stSidebarCollapsedControl"] {{
         z-index: 100000 !important; background-color: {topbar_bg}; 
         border-radius: 50%; width: 40px; height: 40px;
@@ -176,7 +183,6 @@ st.markdown(f"""
     div[data-testid="column"]:nth-of-type(1) {{ height: calc(100vh - 80px); overflow: hidden; padding-right: 15px; border-right: 1px solid {border_color}; }}
     div[data-testid="column"]:nth-of-type(2) {{ height: calc(100vh - 80px); overflow-y: auto; padding-left: 15px; display: flex; flex-direction: column; justify-content: flex-end; }}
     
-    /* Custom Card */
     .custom-card {{
         background-color: {card_bg}; border: 1px solid {border_color}; border-radius: 10px; padding: 15px 10px; text-align: center;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; gap: 2px;
@@ -193,6 +199,7 @@ st.markdown(f"""
     .stChatInput {{ padding-bottom: 10px; z-index: 100; }}
     header[data-testid="stHeader"] {{ background: transparent; z-index: 100000; }}
     header .decoration {{ display: none; }}
+    button[kind="secondary"] {{ width: 100%; border: 1px solid {border_color}; color: {text_color} !important; }}
     
     @media (max-width: 600px) {{
         .gemini-bar {{ padding: 5px 10px 5px 65px; flex-direction: column; align-items: flex-start; justify-content: center; height: auto; min-height: 60px; }}
@@ -331,8 +338,9 @@ with col_chat:
     if not st.session_state.msgs and API_KEY:
         try:
             client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=API_KEY)
+            # [MODEL UPDATED] Llama 3.3 70B Versatile (Smarter!)
             res = client.chat.completions.create(
-                model="llama-3.1-8b-instant",
+                model="llama-3.3-70b-versatile", 
                 messages=[{"role": "user", "content": f"Analyze energy market data on {display_date}: {summary_text}. Provide a concise executive summary in English."}]
             )
             st.session_state.msgs.append({"role": "assistant", "content": f"**Analysis ({display_date}):**\n{res.choices[0].message.content}"})
@@ -350,7 +358,7 @@ with col_chat:
             try:
                 client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=API_KEY)
                 stream = client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
+                    model="llama-3.3-70b-versatile", # Updated Model here too
                     messages=[{"role": "system", "content": "You are a professional energy analyst. Answer in English. Be concise and data-driven."}, 
                               *[{"role": m["role"], "content": m["content"]} for m in st.session_state.msgs]], stream=True
                 )
