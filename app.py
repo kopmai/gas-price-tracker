@@ -81,7 +81,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (FONT & BUTTON FIXES COMBINED) ---
+# --- 5. CSS (FONT & BUTTON FIX COMBINED) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -91,52 +91,49 @@ input_bg = "#262730" if is_dark else "#ffffff"
 
 st.markdown(f"""
 <style>
-    /* --- Import Font Kanit --- */
+    /* Import Font */
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap');
     
-    /* --- Apply Font Globally --- */
-    html, body, [class*="css"], .stApp, 
-    h1, h2, h3, h4, h5, h6, p, div, span, a, button, input, select, textarea, label, li {{ 
+    /* Global Font Apply */
+    html, body, [class*="css"], .stApp, h1, h2, h3, h4, h5, h6, p, div, span, a, button, input, select, textarea, label, li {{ 
         font-family: 'Kanit', sans-serif !important; 
         color: {text_color} !important;
     }}
-    /* -------------------------- */
-
+    
     .stApp {{ background-color: {bg_color}; overflow: hidden; }}
     
-    /* --- [FIX] Button Text Glitch --- */
+    /* --- [FIXED] Button Icon --- */
+    /* 1. จัด Style ปุ่มให้เป็นวงกลม */
     [data-testid="stSidebarCollapsedControl"] {{
         z-index: 100000 !important; 
-        background-color: {topbar_bg}; 
+        background-color: {topbar_bg} !important; 
         border-radius: 50%; width: 40px; height: 40px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid {border_color}; 
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15); 
+        border: 1px solid {border_color}; 
         top: 10px !important; left: 15px !important;
-        display: flex; align-items: center; justify-content: center;
-        
-        /* Hide Original Text */
-        color: transparent !important; 
-        font-size: 0 !important;
+        display: flex !important; align-items: center !important; justify-content: center !important;
     }}
-    [data-testid="stSidebarCollapsedControl"] svg, 
-    [data-testid="stSidebarCollapsedControl"] img {{ display: none !important; }}
     
-    /* Add Gear Icon */
+    /* 2. [สำคัญ] ซ่อนไส้ในเดิมทิ้งให้หมด (ไม่ให้ Font Kanit ไปกระทบ) */
+    [data-testid="stSidebarCollapsedControl"] > * {{
+        display: none !important;
+    }}
+    
+    /* 3. ใส่ไอคอนใหม่ด้วย ::after */
     [data-testid="stSidebarCollapsedControl"]::after {{ 
         content: "⚙️"; 
         font-size: 22px !important; 
-        color: {text_color} !important; /* Restore Icon Color */
-        margin-bottom: 3px; 
-        visibility: visible;
+        margin-bottom: 3px;
+        display: block !important;
     }}
+    
     [data-testid="stSidebarCollapsedControl"]:hover {{ 
         transform: rotate(45deg); transition: transform 0.3s ease; opacity: 0.8; 
     }}
-    /* -------------------------------- */
+    /* -------------------------- */
 
-    /* Dropdown & Popover Colors */
-    div[data-baseweb="popover"] > div,
-    div[data-baseweb="menu"],
-    ul[data-baseweb="menu"] {{
+    /* Dropdowns & Calendar */
+    div[data-baseweb="popover"] > div, div[data-baseweb="menu"], ul[data-baseweb="menu"] {{
         background-color: {input_bg} !important; border: 1px solid {border_color};
     }}
     ul[data-baseweb="menu"] li, li[role="option"] {{
@@ -145,16 +142,10 @@ st.markdown(f"""
     ul[data-baseweb="menu"] li[aria-selected="true"] {{
         background-color: #ff4b4b !important; color: white !important;
     }}
+    div[data-baseweb="calendar"] {{ background-color: {input_bg} !important; }}
     
-    /* Calendar */
-    div[data-baseweb="calendar"] {{ background-color: {input_bg} !important; color: {text_color} !important; }}
-    div[data-baseweb="calendar"] div {{ color: {text_color} !important; }}
-    div[data-baseweb="calendar"] div[aria-label]:hover {{ background-color: #ff4b4b !important; color: white !important; cursor: pointer; }}
-
-    /* Sidebar Background */
+    /* Sidebar */
     section[data-testid="stSidebar"] {{ background-color: {bg_color} !important; border-right: 1px solid {border_color}; }}
-    
-    /* Reset Button */
     [data-testid="stSidebar"] button {{
         background-color: {input_bg} !important; color: {text_color} !important; border: 1px solid {border_color} !important; width: 100%;
     }}
@@ -166,7 +157,6 @@ st.markdown(f"""
     .stMultiSelect div[data-baseweb="select"] > div {{
         color: {text_color} !important; background-color: {input_bg} !important; border-color: {border_color} !important;
     }}
-    .stDateInput input {{ color: {text_color} !important; }}
     
     /* Toggle */
     [data-testid="stCheckbox"] label {{ opacity: 1 !important; font-weight: 500; }}
@@ -178,7 +168,7 @@ st.markdown(f"""
         display: flex; align-items: center; justify-content: space-between;
         padding: 0 200px 0 80px;
     }}
-    .gemini-bar span {{ font-weight: 600; font-size: 20px; font-family: 'Kanit', sans-serif !important; }}
+    .gemini-bar span {{ font-weight: 600; font-size: 20px; }}
     .date-badge {{ 
         font-size: 14px; color: {text_color}; background: {'#333' if is_dark else '#f1f3f4'}; 
         padding: 4px 12px; border-radius: 20px; font-weight: 400; border: 1px solid {border_color};
@@ -194,10 +184,10 @@ st.markdown(f"""
         background-color: {card_bg}; border: 1px solid {border_color}; border-radius: 10px; padding: 15px 10px; text-align: center;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; gap: 2px;
     }}
-    .card-title {{ font-size: 12px; opacity: 0.7; margin-bottom: 2px; font-family: 'Kanit', sans-serif !important; }}
-    .card-price {{ font-size: 22px; font-weight: 600; line-height: 1.2; font-family: 'Kanit', sans-serif !important; }}
-    .card-unit  {{ font-size: 13px; opacity: 0.9; margin-bottom: 5px; font-family: 'Kanit', sans-serif !important; }}
-    .card-delta {{ font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 12px; display: inline-block; font-family: 'Kanit', sans-serif !important; }}
+    .card-title {{ font-size: 12px; opacity: 0.7; margin-bottom: 2px; }}
+    .card-price {{ font-size: 22px; font-weight: 600; line-height: 1.2; }}
+    .card-unit  {{ font-size: 13px; opacity: 0.9; margin-bottom: 5px; }}
+    .card-delta {{ font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 12px; display: inline-block; }}
     
     .delta-pos {{ color: #00cc66 !important; background: rgba(0,204,102,0.15); }}
     .delta-neg {{ color: #ff4d4d !important; background: rgba(255,77,77,0.15); }}
@@ -206,6 +196,7 @@ st.markdown(f"""
     .stChatInput {{ padding-bottom: 10px; z-index: 100; }}
     header[data-testid="stHeader"] {{ background: transparent; z-index: 100000; }}
     header .decoration {{ display: none; }}
+    button[kind="secondary"] {{ width: 100%; border: 1px solid {border_color}; color: {text_color} !important; }}
     
     @media (max-width: 600px) {{
         .gemini-bar {{ padding: 5px 10px 5px 65px; flex-direction: column; align-items: flex-start; justify-content: center; height: auto; min-height: 60px; }}
