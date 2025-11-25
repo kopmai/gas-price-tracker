@@ -81,7 +81,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (DROPDOWN FIX & AI THEME) ---
+# --- 5. CSS (CALENDAR & THEME FIX) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -96,51 +96,44 @@ st.markdown(f"""
     html, body, [class*="css"], .stApp {{ font-family: 'Prompt', sans-serif; color: {text_color} !important; overflow: hidden; }}
     .stApp {{ background-color: {bg_color}; }}
     
-    /* --- [FIX] Dropdown Menu Visibility --- */
-    /* กล่อง Dropdown ที่เด้งออกมา */
-    div[data-baseweb="popover"] > div {{
-        background-color: {input_bg} !important;
-        border: 1px solid {border_color};
-    }}
-    
-    /* รายการใน Dropdown */
-    ul[data-baseweb="menu"] li {{
+    /* --- [CRITICAL FIX] Calendar Popover --- */
+    div[data-baseweb="calendar"] {{
         background-color: {input_bg} !important;
         color: {text_color} !important;
+        border: 1px solid {border_color};
     }}
-    
-    /* ตอนเอาเมาส์ชี้ (Hover) */
-    ul[data-baseweb="menu"] li[aria-selected="true"] {{
-        background-color: #ff4b4b !important; /* สีแดง Streamlit */
+    /* ปุ่มเปลี่ยนเดือน/ปี */
+    div[data-baseweb="calendar"] button {{
+        color: {text_color} !important;
+    }}
+    /* ตัวเลขวันที่ */
+    div[data-baseweb="calendar"] div[aria-label] {{
+        color: {text_color} !important;
+    }}
+    /* Hover วันที่ */
+    div[data-baseweb="calendar"] div[aria-label]:hover {{
+        background-color: #ff4b4b !important;
         color: white !important;
+        cursor: pointer;
     }}
     /* ------------------------------------- */
 
-    /* Sidebar Background */
-    section[data-testid="stSidebar"] {{
-        background-color: {bg_color} !important;
-        border-right: 1px solid {border_color};
-    }}
+    /* Dropdown Menu */
+    div[data-baseweb="popover"] > div {{ background-color: {input_bg} !important; border: 1px solid {border_color}; }}
+    ul[data-baseweb="menu"] li {{ background-color: {input_bg} !important; color: {text_color} !important; }}
+    ul[data-baseweb="menu"] li[aria-selected="true"] {{ background-color: #ff4b4b !important; color: white !important; }}
 
-    /* Reset Button */
+    /* Sidebar */
+    section[data-testid="stSidebar"] {{ background-color: {bg_color} !important; border-right: 1px solid {border_color}; }}
     [data-testid="stSidebar"] button {{
-        background-color: {input_bg} !important;
-        color: {text_color} !important;
-        border: 1px solid {border_color} !important;
-        width: 100%;
+        background-color: {input_bg} !important; color: {text_color} !important; border: 1px solid {border_color} !important; width: 100%;
     }}
-    [data-testid="stSidebar"] button:hover {{
-        border-color: #ff4b4b !important;
-        color: #ff4b4b !important;
-    }}
-
+    
     /* Inputs */
     .stSelectbox div[data-baseweb="select"] > div,
     .stDateInput div[data-baseweb="input"],
     .stMultiSelect div[data-baseweb="select"] > div {{
-        color: {text_color} !important;
-        background-color: {input_bg} !important;
-        border-color: {border_color} !important;
+        color: {text_color} !important; background-color: {input_bg} !important; border-color: {border_color} !important;
     }}
     .stDateInput input {{ color: {text_color} !important; }}
     
@@ -164,19 +157,15 @@ st.markdown(f"""
     }}
 
     [data-testid="stSidebarCollapsedControl"] {{
-        z-index: 100000 !important; background-color: {topbar_bg}; 
-        border-radius: 50%; width: 40px; height: 40px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid {border_color}; 
-        top: 10px !important; left: 15px !important;
-        display: flex; align-items: center; justify-content: center;
-        color: {text_color} !important;
+        z-index: 100000 !important; background-color: {topbar_bg}; border-radius: 50%; width: 40px; height: 40px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid {border_color}; top: 10px !important; left: 15px !important;
+        display: flex; align-items: center; justify-content: center; color: {text_color} !important;
     }}
     [data-testid="stSidebarCollapsedControl"] svg {{ display: none !important; }}
     [data-testid="stSidebarCollapsedControl"]::after {{ content: "⚙️"; font-size: 22px; margin-bottom: 3px; }}
 
     .main .block-container {{ 
-        padding-top: 65px !important; 
-        padding-left: 1rem !important; padding-right: 1rem !important; max-width: 100% !important; 
+        padding-top: 65px !important; padding-left: 1rem !important; padding-right: 1rem !important; max-width: 100% !important; 
     }}
     .main .block-container h3 {{ margin-top: 0 !important; padding-top: 10px !important; }}
     
@@ -338,18 +327,31 @@ with col_chat:
     if not st.session_state.msgs and API_KEY:
         try:
             client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=API_KEY)
-            # [MODEL UPDATED] Llama 3.3 70B Versatile (Smarter!)
+            # [NEW] Executive Summary Prompt (Thai + Geopolitics)
+            prompt_text = f"""
+            ในฐานะนักกลยุทธ์พลังงานและภูมิรัฐศาสตร์ เขียน "บทสรุปผู้บริหาร (Executive Summary)" สั้นๆ 5-6 บรรทัด ภาษาไทย
+            จากข้อมูลตลาดพลังงานวันที่ {display_date}:
+            {summary_text}
+            
+            สิ่งที่ต้องวิเคราะห์:
+            1. แนวโน้มราคาก๊าซในตลาดโลก (JKM, Henry Hub) เทียบกับ Pool Gas ของไทย
+            2. ผลกระทบต่อต้นทุนเชื้อเพลิงและค่า Ft ของไทยในปัจจุบัน
+            3. ปัจจัยภูมิรัฐศาสตร์ (Geopolitics) ที่เกี่ยวข้อง (เช่น สงคราม, ฤดูกาล, Supply Chain)
+            
+            ใช้ภาษาทางการ กระชับ ตรงประเด็นสำหรับผู้บริหารระดับสูง
+            """
+            
             res = client.chat.completions.create(
-                model="llama-3.3-70b-versatile", 
-                messages=[{"role": "user", "content": f"Analyze energy market data on {display_date}: {summary_text}. Provide a concise executive summary in English."}]
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt_text}]
             )
-            st.session_state.msgs.append({"role": "assistant", "content": f"**Analysis ({display_date}):**\n{res.choices[0].message.content}"})
+            st.session_state.msgs.append({"role": "assistant", "content": f"**Executive Summary ({display_date}):**\n{res.choices[0].message.content}"})
         except: pass
 
     for m in st.session_state.msgs:
         st.chat_message(m["role"], avatar="👤" if m["role"]=="user" else "🤖").write(m["content"])
 
-    if prompt := st.chat_input("Ask AI (English/Thai)..."):
+    if prompt := st.chat_input("ถาม AI (เกี่ยวกับตลาดพลังงาน)..."):
         st.session_state.msgs.append({"role": "user", "content": prompt})
         st.rerun()
 
@@ -358,8 +360,8 @@ with col_chat:
             try:
                 client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=API_KEY)
                 stream = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile", # Updated Model here too
-                    messages=[{"role": "system", "content": "You are a professional energy analyst. Answer in English. Be concise and data-driven."}, 
+                    model="llama-3.3-70b-versatile",
+                    messages=[{"role": "system", "content": "You are an Energy & Geopolitics Strategist. Answer in Thai. Be professional and concise."}, 
                               *[{"role": m["role"], "content": m["content"]} for m in st.session_state.msgs]], stream=True
                 )
                 st.session_state.msgs.append({"role": "assistant", "content": st.write_stream(stream)})
