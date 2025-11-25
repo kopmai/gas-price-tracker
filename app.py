@@ -16,7 +16,6 @@ st.markdown("""
     html, body, [class*="css"] { font-family: 'Prompt', sans-serif; color: #333; overflow: hidden; }
     .stApp { background-color: #ffffff; }
     
-    /* Top Bar */
     .gemini-bar {
         position: fixed; top: 0; left: 0; width: 100%; height: 60px;
         background: white; border-bottom: 1px solid #dadce0; z-index: 99999;
@@ -25,7 +24,6 @@ st.markdown("""
     }
     .date-badge { font-size: 14px; color: #5f6368; background: #f1f3f4; padding: 4px 12px; border-radius: 20px; font-weight: 400; }
 
-    /* Sidebar Button */
     [data-testid="stSidebarCollapsedControl"] {
         z-index: 100000 !important; background-color: white; border-radius: 50%; width: 40px; height: 40px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid #eee; top: 10px !important; left: 15px !important;
@@ -35,7 +33,6 @@ st.markdown("""
     [data-testid="stSidebarCollapsedControl"]::after { content: "⚙️"; font-size: 22px; margin-bottom: 3px; }
     [data-testid="stSidebarCollapsedControl"]:hover { transform: rotate(45deg); transition: transform 0.3s ease; background-color: #f1f3f4; }
 
-    /* Responsive */
     @media (max-width: 600px) {
         .gemini-bar { padding: 5px 10px 5px 65px; flex-direction: column; align-items: flex-start; justify-content: center; height: auto; min-height: 60px; }
         .gemini-bar span:first-child { font-size: 18px; }
@@ -72,7 +69,6 @@ def fetch_market_data(ticker):
 
 @st.cache_data(ttl=3600)
 def get_manual_data(data_type):
-    # 1.1 FT Data (บาท/หน่วย) - ย้อนหลังถึง 2021
     ft_data = [
         ("2021-01-01", -0.1532), ("2021-05-01", -0.1532), ("2021-09-01", -0.1532),
         ("2022-01-01", 0.0139),  ("2022-05-01", 0.2477),  ("2022-09-01", 0.9343),
@@ -80,21 +76,13 @@ def get_manual_data(data_type):
         ("2024-01-01", 0.3972),  ("2024-05-01", 0.3972),  ("2024-09-01", 0.3972),
         ("2025-01-01", 0.3672),  ("2025-05-01", 0.1972),  ("2025-09-01", 0.1572)
     ]
-    
-    # 1.2 Pool Gas Data (บาท/MMBtu) - ย้อนหลังถึง 2021 (ช่วงวิกฤต)
     pool_gas_data = [
-        # 2021: เริ่มขยับขึ้นปลายปี
         ("2021-01-01", 216.00), ("2021-05-01", 225.50), ("2021-09-01", 280.00),
-        # 2022: ปีแห่งวิกฤตสงครามรัสเซีย-ยูเครน (พุ่งสูงสุด)
-        ("2022-01-01", 350.00), ("2022-05-01", 400.50), ("2022-09-01", 560.00), # Peak Crisis
-        # 2023: ราคาสูงค้างฟ้า แล้วค่อยๆ ลง
+        ("2022-01-01", 350.00), ("2022-05-01", 400.50), ("2022-09-01", 560.00),
         ("2023-01-01", 438.28), ("2023-05-01", 389.00), ("2023-09-01", 304.79),
-        # 2024: เริ่มทรงตัว
         ("2024-01-01", 318.25), ("2024-05-01", 309.00), ("2024-09-01", 297.00),
-        # 2025: แนวโน้ม
         ("2025-01-01", 301.00), ("2025-05-01", 300.29), ("2025-10-01", 270.10)
     ]
-
     source = ft_data if data_type == "ft" else pool_gas_data
     df = pd.DataFrame(source, columns=["Date", "Close"])
     df['Date'] = pd.to_datetime(df['Date']).dt.normalize()
@@ -105,7 +93,6 @@ def get_manual_data(data_type):
         df = pd.concat([df, new_row], ignore_index=True)
         
     idx = pd.date_range(start=df.Date.min(), end=today)
-    # ใช้ ffill เพื่อลากเส้นค่าคงที่ (Step Line)
     df = df.set_index('Date').reindex(idx).ffill().reset_index().rename(columns={'index': 'Date'})
     return df
 
@@ -116,15 +103,18 @@ def get_data_point(df, target_date):
     return row['Close'], row['Date']
 
 # --- 3. CONFIG ---
+# curr: "THB" means native is THB, "USD" means native is USD
+# is_ref: True means it's the exchange rate itself (don't convert)
 ASSETS = {
     "ราคา Pool Gas (Thai)": {"type": "manual_pool", "ticker": "POOL", "unit": "Baht/MMBtu", "curr": "THB"},
     "ราคาตลาด JKM": {"type": "api", "ticker": "JKM=F", "unit": "$/MMBtu", "curr": "USD"},
-    "อัตราแลกเปลี่ยน (USD/THB)": {"type": "api", "ticker": "THB=X", "unit": "Baht", "curr": "THB"},
+    "ราคาตลาด Henry Hub": {"type": "api", "ticker": "NG=F",  "unit": "$/MMBtu", "curr": "USD"},
+    "อัตราแลกเปลี่ยน (USD/THB)": {"type": "api", "ticker": "THB=X", "unit": "Baht", "curr": "THB", "is_ref": True},
     "ค่าไฟฟ้าผันแปร (Ft)": {"type": "manual_ft", "ticker": "FT",    "unit": "Baht/Unit", "curr": "THB"},
 }
 PERIODS = {"1mo":30, "3mo":90, "6mo":180, "1y":365, "5y":1825, "Max":3650}
 
-# --- 4. SIDEBAR & TOGGLES ---
+# --- 4. SIDEBAR ---
 st.sidebar.title("⚙️ Control Panel")
 with st.sidebar:
     is_dark = st.toggle("🌗 Dark Mode", value=False)
@@ -136,7 +126,8 @@ with st.sidebar:
     st.divider()
     sel_period = st.selectbox("⏳ Timeframe", list(PERIODS.keys()), index=4)
     st.divider()
-    is_thb = st.toggle("🇹🇭 THB Convert", False)
+    # [UPDATED] Logic: Show USD? Default False (Show THB)
+    is_usd_mode = st.toggle("🇺🇸 Show in USD", value=False)
     is_norm = st.toggle("📏 Normalize (Max=1)", False)
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM"])
@@ -211,9 +202,9 @@ with col_dash:
     st.subheader("สรุปภาพรวมตลาดวันนี้")
     thb_df = fetch_market_data("THB=X")
     
-    # 6.1 Metrics Loop
     cols = st.columns(len(ASSETS))
     summary_text = f"Market Data ({display_date}):\n"
+    
     for idx, (name, conf) in enumerate(ASSETS.items()):
         if conf["type"] == "manual_ft": df = get_manual_data("ft")
         elif conf["type"] == "manual_pool": df = get_manual_data("pool")
@@ -231,16 +222,30 @@ with col_dash:
                     except: pct = 0
                     
                     unit = conf['unit']
-                    if is_thb and conf['curr'] == 'USD' and thb_df is not None:
-                        rate, _ = get_data_point(thb_df, p_date)
-                        if rate: price *= rate; unit = "Baht/MMBtu" if "MMBtu" in unit else "Baht"
                     
+                    # [LOGIC UPDATED] Default = THB, Toggle = USD
+                    # ข้ามการแปลงถ้าเป็น Ref (อัตราแลกเปลี่ยน)
+                    if not conf.get("is_ref"):
+                        rate, _ = get_data_point(thb_df, p_date)
+                        if rate:
+                            if is_usd_mode:
+                                # โหมด USD: ถ้าของเดิมเป็น THB -> หาร Rate
+                                if conf['curr'] == "THB":
+                                    price /= rate
+                                    unit = unit.replace("Baht", "$").replace("บาท", "$")
+                                # ถ้าของเดิมเป็น USD -> ไม่ต้องทำอะไร
+                            else:
+                                # โหมด THB (Default): ถ้าของเดิมเป็น USD -> คูณ Rate
+                                if conf['curr'] == "USD":
+                                    price *= rate
+                                    unit = unit.replace("$", "Baht")
+                                # ถ้าของเดิมเป็น THB -> ไม่ต้องทำอะไร
+
                     st.metric(name, f"{price:,.2f} {unit}", f"{pct:+.2f}% (1D)")
                     summary_text += f"- {name}: {price:.2f} {unit}\n"
                 else: st.metric(name, "No Data", "-")
             else: st.metric(name, "Error", "-")
 
-    # 6.2 Graph Logic
     if sel_assets:
         chart_data = []
         start_dt = (datetime.now() - timedelta(days=PERIODS[sel_period])).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -255,14 +260,21 @@ with col_dash:
                 sub = df[df['Date'] >= start_dt].copy()
                 sub['Date'] = pd.to_datetime(sub['Date']).dt.tz_localize(None)
                 
-                if is_thb and conf['curr'] == 'USD' and thb_df is not None:
+                # [LOGIC UPDATED] Graph Conversion
+                if not conf.get("is_ref") and thb_df is not None:
                     thb_clean = thb_df.copy()
                     thb_clean['Date'] = pd.to_datetime(thb_clean['Date']).dt.tz_localize(None)
-                    sub = sub.set_index('Date')
-                    thb_indexed = thb_clean.set_index('Date')
-                    sub['Rate'] = thb_indexed['Close'].reindex(sub.index, method='ffill')
-                    sub['Close'] = sub['Close'] * sub['Rate']
-                    sub = sub.reset_index()
+                    thb_lookup = thb_clean.set_index('Date')['Close'].sort_index().ffill()
+                    
+                    # หา Rate
+                    rates = thb_lookup.asof(sub['Date'])
+                    
+                    if is_usd_mode:
+                        if conf['curr'] == "THB":
+                            sub['Close'] = sub['Close'] / rates.values
+                    else:
+                        if conf['curr'] == "USD":
+                            sub['Close'] = sub['Close'] * rates.values
                 
                 label = name
                 if is_norm:
@@ -288,7 +300,7 @@ with col_dash:
             
             fig.update_layout(
                 margin=dict(l=0, r=0, t=30, b=0), height=600, hovermode="x unified",
-                xaxis_title=None, yaxis_title="Normalized" if is_norm else "Price",
+                xaxis_title=None, yaxis_title="Normalized" if is_norm else ("Price (USD)" if is_usd_mode else "Price (THB)"),
                 legend=dict(orientation="h", y=1.02, x=1, xanchor="right"),
                 dragmode=False,
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
