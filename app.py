@@ -81,7 +81,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (FINAL FIX V16) ---
+# --- 5. CSS (KANIT + BUTTON OVERLAY) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -91,45 +91,42 @@ input_bg = "#262730" if is_dark else "#ffffff"
 
 st.markdown(f"""
 <style>
+    /* 1. Load Font */
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap');
     
-    html, body, [class*="css"], .stApp {{ 
-        font-family: 'Kanit', sans-serif !important; 
-        color: {text_color} !important; 
-        overflow: hidden; 
+    /* 2. Apply Font Safely (Exclude Icons) */
+    html, body, [class*="css"], p, div, h1, h2, h3, h4, h5, h6, span, button, input, label {{
+        font-family: 'Kanit', sans-serif !important;
+        color: {text_color};
     }}
-    .stApp {{ background-color: {bg_color}; }}
     
-    /* --- [NUCLEAR FIX] BUTTON TEXT HIDING --- */
+    .stApp {{ background-color: {bg_color}; overflow: hidden; }}
+
+    /* --- [FIX] MENU BUTTON OVERLAY --- */
+    /* เทคนิคใหม่: ไม่ซ่อนของเก่า แต่เอาของใหม่วางทับมิดเลย */
     [data-testid="stSidebarCollapsedControl"] {{
-        z-index: 100000 !important; 
-        background-color: {topbar_bg} !important; 
-        border-radius: 50%; width: 40px; height: 40px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15); 
-        border: 1px solid {border_color} !important; 
+        position: relative; /* ตั้งหลัก */
+        z-index: 100000 !important;
+        background-color: {topbar_bg} !important;
+        border: 1px solid {border_color} !important;
+        border-radius: 50%;
+        width: 40px; height: 40px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
         top: 10px !important; left: 15px !important;
-        display: flex !important; align-items: center !important; justify-content: center !important;
-        
-        /* [KEY FIX] บีบขนาดฟอนต์ให้เหลือ 0 เพื่อซ่อน text */
-        font-size: 0px !important;
-        color: transparent !important;
-        overflow: hidden !important;
+        color: transparent !important; /* ซ่อนตัวหนังสือข้างใน */
     }}
     
-    /* เสกไอคอนใหม่ขึ้นมาแทน */
-    [data-testid="stSidebarCollapsedControl"]::after {{ 
-        content: "⚙️" !important; 
-        font-size: 22px !important; 
-        color: {text_color} !important; /* คืนสีให้ไอคอน */
-        display: block !important;
-        opacity: 1 !important;
-        margin-top: -2px !important;
+    /* สร้างแผ่นไอคอนใหม่ แปะทับหน้าปุ่มเดิม */
+    [data-testid="stSidebarCollapsedControl"]::before {{
+        content: "☰"; /* Hamburger Menu Icon */
+        font-size: 24px;
+        color: {text_color};
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -55%); /* จัดกึ่งกลาง */
+        pointer-events: none; /* ให้คลิกทะลุไปโดนปุ่มจริงได้ */
     }}
-    
-    [data-testid="stSidebarCollapsedControl"]:hover {{ 
-        transform: rotate(45deg); transition: transform 0.3s ease; opacity: 0.8; 
-    }}
-    /* ---------------------------------------- */
+    /* -------------------------------- */
 
     /* Dropdown & Calendar */
     div[data-baseweb="popover"] > div, div[data-baseweb="menu"], ul[data-baseweb="menu"] {{
@@ -145,10 +142,8 @@ st.markdown(f"""
     div[data-baseweb="calendar"] div {{ color: {text_color} !important; }}
     div[data-baseweb="calendar"] div[aria-label]:hover {{ background-color: #ff4b4b !important; color: white !important; cursor: pointer; }}
 
-    /* Sidebar Background */
+    /* Sidebar */
     section[data-testid="stSidebar"] {{ background-color: {bg_color} !important; border-right: 1px solid {border_color}; }}
-    
-    /* Reset Button */
     [data-testid="stSidebar"] button {{
         background-color: {input_bg} !important; color: {text_color} !important; border: 1px solid {border_color} !important; width: 100%;
     }}
@@ -161,11 +156,8 @@ st.markdown(f"""
         color: {text_color} !important; background-color: {input_bg} !important; border-color: {border_color} !important;
     }}
     .stDateInput input {{ color: {text_color} !important; }}
-    
-    /* Toggle & Text */
     [data-testid="stCheckbox"] label {{ opacity: 1 !important; font-weight: 500; }}
     div[data-testid="stChatMessage"] * {{ color: {text_color} !important; }}
-    h1, h2, h3, h4, h5, h6, p, label, span, li, div {{ color: {text_color} !important; }}
 
     /* Top Bar */
     .gemini-bar {{
@@ -244,22 +236,16 @@ with col_dash:
                         idx_1y = max(0, curr_idx - 252)
                         price_1y = df.iloc[idx_1y]['Close']
                         pct_yoy = ((price - price_1y)/price_1y)*100 if price_1y!=0 else 0
-                    except: 
-                        pct = 0
-                        pct_yoy = 0
+                    except: pct = 0; pct_yoy = 0
                     
                     unit = conf['unit']
                     if not conf.get("is_ref"):
                         rate, _ = get_data_point(thb_df, p_date)
                         if rate:
                             if is_thb: 
-                                if conf['curr'] == "THB":
-                                    price /= rate
-                                    unit = unit.replace("Baht", "$").replace("บาท", "$")
+                                if conf['curr'] == "THB": price /= rate; unit = unit.replace("Baht", "$").replace("บาท", "$")
                             else: 
-                                if conf['curr'] == "USD":
-                                    price *= rate
-                                    unit = unit.replace("$", "Baht")
+                                if conf['curr'] == "USD": price *= rate; unit = unit.replace("$", "Baht")
 
                     delta_class = "delta-pos" if pct > 0 else ("delta-neg" if pct < 0 else "delta-neu")
                     arrow = "▲" if pct > 0 else ("▼" if pct < 0 else "•")
