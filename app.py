@@ -81,7 +81,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (FIXED SIDEBAR BG) ---
+# --- 5. CSS (BUTTON FIX) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -100,14 +100,29 @@ st.markdown(f"""
     }}
     .stApp {{ background-color: {bg_color}; }}
     
-    /* --- [CRITICAL FIX] Sidebar Background --- */
+    /* Sidebar Background */
     section[data-testid="stSidebar"] {{
-        background-color: {bg_color} !important; /* ถมดำ Sidebar */
+        background-color: {bg_color} !important;
         border-right: 1px solid {border_color};
     }}
-    /* ---------------------------------------- */
 
-    /* Input Fields in Sidebar */
+    /* --- [FIXED] Reset Button Style --- */
+    /* บังคับพื้นหลังปุ่มให้เป็นสีเดียวกับ Input (สีเทาเข้มใน Dark Mode) */
+    [data-testid="stSidebar"] button {{
+        background-color: {input_bg} !important;
+        color: {text_color} !important;
+        border: 1px solid {border_color} !important;
+        width: 100%;
+        transition: all 0.3s ease;
+    }}
+    [data-testid="stSidebar"] button:hover {{
+        border-color: #ff4b4b !important;
+        color: #ff4b4b !important;
+        background-color: {input_bg} !important; /* คงพื้นหลังไว้ตอน Hover */
+    }}
+    /* ---------------------------------- */
+
+    /* Inputs */
     .stSelectbox div[data-baseweb="select"] > div,
     .stDateInput div[data-baseweb="input"],
     .stMultiSelect div[data-baseweb="select"] > div {{
@@ -116,20 +131,14 @@ st.markdown(f"""
         border-color: {border_color} !important;
     }}
     .stDateInput input {{ color: {text_color} !important; }}
-    
-    /* Dropdown Menu Items */
     ul[data-baseweb="menu"] li {{
         background-color: {input_bg} !important;
         color: {text_color} !important;
     }}
 
-    /* Toggle Switch */
+    /* Toggle & Text */
     [data-testid="stCheckbox"] label {{ opacity: 1 !important; font-weight: 500; }}
-    
-    /* Chat Text */
     div[data-testid="stChatMessage"] * {{ color: {text_color} !important; }}
-    
-    /* Global Text Fix */
     h1, h2, h3, h4, h5, h6, p, label, span, li, div {{ color: {text_color} !important; }}
 
     /* Top Bar */
@@ -146,6 +155,7 @@ st.markdown(f"""
         padding: 4px 12px; border-radius: 20px; font-weight: 400; border: 1px solid {border_color};
     }}
 
+    /* Sidebar Button */
     [data-testid="stSidebarCollapsedControl"] {{
         z-index: 100000 !important; background-color: {topbar_bg}; 
         border-radius: 50%; width: 40px; height: 40px;
@@ -183,7 +193,6 @@ st.markdown(f"""
     .stChatInput {{ padding-bottom: 10px; z-index: 100; }}
     header[data-testid="stHeader"] {{ background: transparent; z-index: 100000; }}
     header .decoration {{ display: none; }}
-    button[kind="secondary"] {{ width: 100%; border: 1px solid {border_color}; color: {text_color} !important; }}
     
     @media (max-width: 600px) {{
         .gemini-bar {{ padding: 5px 10px 5px 65px; flex-direction: column; align-items: flex-start; justify-content: center; height: auto; min-height: 60px; }}
