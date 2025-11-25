@@ -81,7 +81,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (CALENDAR & THEME FIX) ---
+# --- 5. CSS (NUCLEAR FIX) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -96,40 +96,52 @@ st.markdown(f"""
     html, body, [class*="css"], .stApp {{ font-family: 'Prompt', sans-serif; color: {text_color} !important; overflow: hidden; }}
     .stApp {{ background-color: {bg_color}; }}
     
-    /* --- [CRITICAL FIX] Calendar Popover --- */
+    /* --- [NUCLEAR FIX] Calendar & Dropdown Backgrounds --- */
+    
+    /* 1. Calendar Container (ถมดำทั้งกล่อง) */
     div[data-baseweb="calendar"] {{
         background-color: {input_bg} !important;
         color: {text_color} !important;
-        border: 1px solid {border_color};
     }}
-    /* ปุ่มเปลี่ยนเดือน/ปี */
-    div[data-baseweb="calendar"] button {{
+    
+    /* 2. Calendar Header (เดือน/ปี) & Days (Mo,Tu...) */
+    div[data-baseweb="calendar"] div {{
         color: {text_color} !important;
     }}
-    /* ตัวเลขวันที่ */
-    div[data-baseweb="calendar"] div[aria-label] {{
+    
+    /* 3. Dropdown Menu Container (Timeframe) */
+    ul[data-baseweb="menu"] {{
+        background-color: {input_bg} !important;
+    }}
+    
+    /* 4. Dropdown Items */
+    ul[data-baseweb="menu"] li {{
+        background-color: {input_bg} !important;
         color: {text_color} !important;
     }}
-    /* Hover วันที่ */
-    div[data-baseweb="calendar"] div[aria-label]:hover {{
+    /* Hover state for menu items */
+    ul[data-baseweb="menu"] li[aria-selected="true"] {{
         background-color: #ff4b4b !important;
         color: white !important;
-        cursor: pointer;
     }}
-    /* ------------------------------------- */
+    
+    /* 5. Popover Container (กล่องแม่ของ Dropdown/Calendar) */
+    div[data-baseweb="popover"] > div {{
+        background-color: {input_bg} !important;
+        border: 1px solid {border_color};
+    }}
+    
+    /* ---------------------------------------------------- */
 
-    /* Dropdown Menu */
-    div[data-baseweb="popover"] > div {{ background-color: {input_bg} !important; border: 1px solid {border_color}; }}
-    ul[data-baseweb="menu"] li {{ background-color: {input_bg} !important; color: {text_color} !important; }}
-    ul[data-baseweb="menu"] li[aria-selected="true"] {{ background-color: #ff4b4b !important; color: white !important; }}
-
-    /* Sidebar */
     section[data-testid="stSidebar"] {{ background-color: {bg_color} !important; border-right: 1px solid {border_color}; }}
+    
+    /* Reset Button */
     [data-testid="stSidebar"] button {{
         background-color: {input_bg} !important; color: {text_color} !important; border: 1px solid {border_color} !important; width: 100%;
     }}
-    
-    /* Inputs */
+    [data-testid="stSidebar"] button:hover {{ border-color: #ff4b4b !important; color: #ff4b4b !important; }}
+
+    /* Inputs Text Color */
     .stSelectbox div[data-baseweb="select"] > div,
     .stDateInput div[data-baseweb="input"],
     .stMultiSelect div[data-baseweb="select"] > div {{
@@ -137,12 +149,10 @@ st.markdown(f"""
     }}
     .stDateInput input {{ color: {text_color} !important; }}
     
-    /* Toggle & Text */
     [data-testid="stCheckbox"] label {{ opacity: 1 !important; font-weight: 500; }}
     div[data-testid="stChatMessage"] * {{ color: {text_color} !important; }}
     h1, h2, h3, h4, h5, h6, p, label, span, li, div {{ color: {text_color} !important; }}
 
-    /* Top Bar */
     .gemini-bar {{
         position: fixed; top: 0; left: 0; width: 100%; height: 60px;
         background: {topbar_bg}; border-bottom: 1px solid {border_color}; z-index: 99999;
@@ -151,22 +161,21 @@ st.markdown(f"""
     }}
     .gemini-bar span {{ font-weight: 600; font-size: 20px; }}
     .date-badge {{ 
-        font-size: 14px; color: {text_color}; 
-        background: {'#333' if is_dark else '#f1f3f4'}; 
+        font-size: 14px; color: {text_color}; background: {'#333' if is_dark else '#f1f3f4'}; 
         padding: 4px 12px; border-radius: 20px; font-weight: 400; border: 1px solid {border_color};
     }}
 
     [data-testid="stSidebarCollapsedControl"] {{
-        z-index: 100000 !important; background-color: {topbar_bg}; border-radius: 50%; width: 40px; height: 40px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid {border_color}; top: 10px !important; left: 15px !important;
+        z-index: 100000 !important; background-color: {topbar_bg}; 
+        border-radius: 50%; width: 40px; height: 40px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid {border_color}; 
+        top: 10px !important; left: 15px !important;
         display: flex; align-items: center; justify-content: center; color: {text_color} !important;
     }}
     [data-testid="stSidebarCollapsedControl"] svg {{ display: none !important; }}
     [data-testid="stSidebarCollapsedControl"]::after {{ content: "⚙️"; font-size: 22px; margin-bottom: 3px; }}
 
-    .main .block-container {{ 
-        padding-top: 65px !important; padding-left: 1rem !important; padding-right: 1rem !important; max-width: 100% !important; 
-    }}
+    .main .block-container {{ padding-top: 65px !important; padding-left: 1rem !important; padding-right: 1rem !important; max-width: 100% !important; }}
     .main .block-container h3 {{ margin-top: 0 !important; padding-top: 10px !important; }}
     
     div[data-testid="column"]:nth-of-type(1) {{ height: calc(100vh - 80px); overflow: hidden; padding-right: 15px; border-right: 1px solid {border_color}; }}
@@ -223,9 +232,12 @@ with col_dash:
                 if price is not None and not pd.isna(price):
                     try:
                         curr_idx = df[df['Date'] == p_date].index[0]
-                        prev_idx = curr_idx - 1
-                        prev = df.iloc[prev_idx]['Close'] if prev_idx >= 0 else price
-                        pct = ((price - prev)/prev)*100 if prev!=0 else 0
+                        # [IMPROVED] YoY Calculation
+                        idx_1y = max(0, curr_idx - 252) # approx 1 year trading days
+                        price_1y = df.iloc[idx_1y]['Close']
+                        yoy_pct = ((price - price_1y)/price_1y)*100 if price_1y!=0 else 0
+                        
+                        pct = yoy_pct # Use YoY as main percentage
                     except: pct = 0
                     
                     unit = conf['unit']
@@ -249,10 +261,10 @@ with col_dash:
                         <div class="card-title">{name}</div>
                         <div class="card-price">{price:,.2f}</div>
                         <div class="card-unit">{unit}</div>
-                        <div><span class="card-delta {delta_class}">{arrow} {pct:+.2f}% (1D)</span></div>
+                        <div><span class="card-delta {delta_class}">{arrow} {pct:+.2f}% (YoY)</span></div>
                     </div>
                     """
-                    summary_text += f"- {name}: {price:.2f} {unit}\n"
+                    summary_text += f"- {name}: {price:.2f} {unit} (Change YoY: {pct:+.2f}%)\n"
                 else:
                     card_html = f"""<div class="custom-card"><div class="card-title">{name}</div><div class="card-price">No Data</div></div>"""
             else:
@@ -327,31 +339,30 @@ with col_chat:
     if not st.session_state.msgs and API_KEY:
         try:
             client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=API_KEY)
-            # [NEW] Executive Summary Prompt (Thai + Geopolitics)
+            # [NEW] Prompt: YoY Comparison + Geopolitics
             prompt_text = f"""
-            ในฐานะนักกลยุทธ์พลังงานและภูมิรัฐศาสตร์ เขียน "บทสรุปผู้บริหาร (Executive Summary)" สั้นๆ 5-6 บรรทัด ภาษาไทย
-            จากข้อมูลตลาดพลังงานวันที่ {display_date}:
+            วิเคราะห์สถานการณ์ตลาดพลังงาน ณ วันที่ {display_date}:
             {summary_text}
             
-            สิ่งที่ต้องวิเคราะห์:
-            1. แนวโน้มราคาก๊าซในตลาดโลก (JKM, Henry Hub) เทียบกับ Pool Gas ของไทย
-            2. ผลกระทบต่อต้นทุนเชื้อเพลิงและค่า Ft ของไทยในปัจจุบัน
-            3. ปัจจัยภูมิรัฐศาสตร์ (Geopolitics) ที่เกี่ยวข้อง (เช่น สงคราม, ฤดูกาล, Supply Chain)
+            โจทย์การวิเคราะห์ (ภาษาไทย):
+            1. เปรียบเทียบราคาวันนี้กับ "ปีที่แล้ว (YoY)" ว่าเปลี่ยนแปลงอย่างไร สูงขึ้นหรือต่ำลง
+            2. วิเคราะห์ผลกระทบของ Geopolitics (ภูมิรัฐศาสตร์) ในช่วงเวลานั้น ที่มีผลต่อราคา (เช่น สงคราม, ฤดูหนาว, Supply Chain)
+            3. สรุปผลกระทบต่อต้นทุนค่าไฟฟ้า (Ft) ของไทย
             
-            ใช้ภาษาทางการ กระชับ ตรงประเด็นสำหรับผู้บริหารระดับสูง
+            ตอบสั้นๆ กระชับ แบบผู้บริหาร
             """
             
             res = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt_text}]
             )
-            st.session_state.msgs.append({"role": "assistant", "content": f"**Executive Summary ({display_date}):**\n{res.choices[0].message.content}"})
+            st.session_state.msgs.append({"role": "assistant", "content": f"**Analysis ({display_date}):**\n{res.choices[0].message.content}"})
         except: pass
 
     for m in st.session_state.msgs:
         st.chat_message(m["role"], avatar="👤" if m["role"]=="user" else "🤖").write(m["content"])
 
-    if prompt := st.chat_input("ถาม AI (เกี่ยวกับตลาดพลังงาน)..."):
+    if prompt := st.chat_input("Ask AI (English/Thai)..."):
         st.session_state.msgs.append({"role": "user", "content": prompt})
         st.rerun()
 
@@ -361,7 +372,7 @@ with col_chat:
                 client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=API_KEY)
                 stream = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
-                    messages=[{"role": "system", "content": "You are an Energy & Geopolitics Strategist. Answer in Thai. Be professional and concise."}, 
+                    messages=[{"role": "system", "content": "You are a professional energy analyst. Answer in Thai."}, 
                               *[{"role": m["role"], "content": m["content"]} for m in st.session_state.msgs]], stream=True
                 )
                 st.session_state.msgs.append({"role": "assistant", "content": st.write_stream(stream)})
