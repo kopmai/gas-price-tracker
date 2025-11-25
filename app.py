@@ -81,7 +81,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (THE ULTIMATE FONT FIX) ---
+# --- 5. CSS (FINAL FIX: BUTTON TEXT GLITCH) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -91,79 +91,82 @@ input_bg = "#262730" if is_dark else "#ffffff"
 
 st.markdown(f"""
 <style>
-    /* --- [NEW] Import 'Kanit' Font --- */
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap');
     
-    /* --- [NUCLEAR FONT FIX] Apply to EVERYTHING --- */
-    html, body, [class*="css"], .stApp, 
-    h1, h2, h3, h4, h5, h6, p, div, span, a, button, input, select, textarea, label, li {{ 
+    html, body, [class*="css"], .stApp {{ 
         font-family: 'Kanit', sans-serif !important; 
-        color: {text_color} !important;
+        color: {text_color} !important; 
+        overflow: hidden; 
     }}
-    /* --------------------------------------------- */
+    .stApp {{ background-color: {bg_color}; }}
     
-    .stApp {{ background-color: {bg_color}; overflow: hidden; }}
-    
-    /* --- Dropdown & Popover Fixes --- */
-    div[data-baseweb="popover"] > div,
-    div[data-baseweb="menu"],
-    ul[data-baseweb="menu"] {{
-        background-color: {input_bg} !important;
-        border: 1px solid {border_color};
+    /* --- [FIX] Button Glitch --- */
+    [data-testid="stSidebarCollapsedControl"] {{
+        z-index: 100000 !important; 
+        background-color: {topbar_bg}; 
+        border-radius: 50%; width: 40px; height: 40px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid {border_color}; 
+        top: 10px !important; left: 15px !important;
+        display: flex; align-items: center; justify-content: center;
+        
+        /* Key Fixes: Hide original text completely */
+        color: transparent !important; 
+        font-size: 0 !important;
     }}
     
-    ul[data-baseweb="menu"] li,
-    li[role="option"] {{
-        background-color: {input_bg} !important;
-        color: {text_color} !important;
+    /* ซ่อนลูกศรเดิมทุกกรณี */
+    [data-testid="stSidebarCollapsedControl"] svg, 
+    [data-testid="stSidebarCollapsedControl"] img {{ 
+        display: none !important; 
     }}
     
+    /* ใส่ไอคอนใหม่ */
+    [data-testid="stSidebarCollapsedControl"]::after {{ 
+        content: "⚙️"; 
+        font-size: 22px !important; 
+        color: {text_color} !important; /* คืนสีให้ไอคอน */
+        margin-bottom: 3px; 
+        visibility: visible;
+    }}
+    
+    [data-testid="stSidebarCollapsedControl"]:hover {{ 
+        transform: rotate(45deg); 
+        transition: transform 0.3s ease; 
+        opacity: 0.8; 
+    }}
+    /* --------------------------- */
+
+    /* Dropdown Fixes */
+    div[data-baseweb="popover"] > div, div[data-baseweb="menu"], ul[data-baseweb="menu"] {{
+        background-color: {input_bg} !important; border: 1px solid {border_color};
+    }}
+    ul[data-baseweb="menu"] li, li[role="option"] {{
+        background-color: {input_bg} !important; color: {text_color} !important;
+    }}
     ul[data-baseweb="menu"] li[aria-selected="true"] {{
-        background-color: #ff4b4b !important;
-        color: white !important;
+        background-color: #ff4b4b !important; color: white !important;
     }}
-    
-    /* Calendar Fix */
-    div[data-baseweb="calendar"] {{
-        background-color: {input_bg} !important;
-        color: {text_color} !important;
-    }}
-    div[data-baseweb="calendar"] div[aria-label]:hover {{
-        background-color: #ff4b4b !important;
-        color: white !important;
-        cursor: pointer;
-    }}
+    div[data-baseweb="calendar"] {{ background-color: {input_bg} !important; color: {text_color} !important; }}
+    div[data-baseweb="calendar"] div {{ color: {text_color} !important; }}
+    div[data-baseweb="calendar"] div[aria-label]:hover {{ background-color: #ff4b4b !important; color: white !important; cursor: pointer; }}
 
     /* Sidebar */
-    section[data-testid="stSidebar"] {{
-        background-color: {bg_color} !important;
-        border-right: 1px solid {border_color};
-    }}
-
-    /* Reset Button */
+    section[data-testid="stSidebar"] {{ background-color: {bg_color} !important; border-right: 1px solid {border_color}; }}
     [data-testid="stSidebar"] button {{
-        background-color: {input_bg} !important;
-        color: {text_color} !important;
-        border: 1px solid {border_color} !important;
-        width: 100%;
+        background-color: {input_bg} !important; color: {text_color} !important; border: 1px solid {border_color} !important; width: 100%;
     }}
-    [data-testid="stSidebar"] button:hover {{
-        border-color: #ff4b4b !important;
-        color: #ff4b4b !important;
-    }}
+    [data-testid="stSidebar"] button:hover {{ border-color: #ff4b4b !important; color: #ff4b4b !important; }}
 
     /* Inputs */
     .stSelectbox div[data-baseweb="select"] > div,
     .stDateInput div[data-baseweb="input"],
     .stMultiSelect div[data-baseweb="select"] > div {{
-        color: {text_color} !important;
-        background-color: {input_bg} !important;
-        border-color: {border_color} !important;
+        color: {text_color} !important; background-color: {input_bg} !important; border-color: {border_color} !important;
     }}
     .stDateInput input {{ color: {text_color} !important; }}
-    
-    /* Toggle */
     [data-testid="stCheckbox"] label {{ opacity: 1 !important; font-weight: 500; }}
+    div[data-testid="stChatMessage"] * {{ color: {text_color} !important; }}
+    h1, h2, h3, h4, h5, h6, p, label, span, li, div {{ color: {text_color} !important; }}
 
     /* Top Bar */
     .gemini-bar {{
@@ -172,28 +175,13 @@ st.markdown(f"""
         display: flex; align-items: center; justify-content: space-between;
         padding: 0 200px 0 80px;
     }}
-    .gemini-bar span {{ font-weight: 600; font-size: 20px; font-family: 'Kanit', sans-serif !important; }}
+    .gemini-bar span {{ font-weight: 600; font-size: 20px; }}
     .date-badge {{ 
-        font-size: 14px; color: {text_color}; 
-        background: {'#333' if is_dark else '#f1f3f4'}; 
+        font-size: 14px; color: {text_color}; background: {'#333' if is_dark else '#f1f3f4'}; 
         padding: 4px 12px; border-radius: 20px; font-weight: 400; border: 1px solid {border_color};
     }}
 
-    [data-testid="stSidebarCollapsedControl"] {{
-        z-index: 100000 !important; background-color: {topbar_bg}; 
-        border-radius: 50%; width: 40px; height: 40px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid {border_color}; 
-        top: 10px !important; left: 15px !important;
-        display: flex; align-items: center; justify-content: center;
-        color: {text_color} !important;
-    }}
-    [data-testid="stSidebarCollapsedControl"] svg {{ display: none !important; }}
-    [data-testid="stSidebarCollapsedControl"]::after {{ content: "⚙️"; font-size: 22px; margin-bottom: 3px; }}
-
-    .main .block-container {{ 
-        padding-top: 65px !important; 
-        padding-left: 1rem !important; padding-right: 1rem !important; max-width: 100% !important; 
-    }}
+    .main .block-container {{ padding-top: 65px !important; padding-left: 1rem !important; padding-right: 1rem !important; max-width: 100% !important; }}
     .main .block-container h3 {{ margin-top: 0 !important; padding-top: 10px !important; }}
     
     div[data-testid="column"]:nth-of-type(1) {{ height: calc(100vh - 80px); overflow: hidden; padding-right: 15px; border-right: 1px solid {border_color}; }}
@@ -203,10 +191,10 @@ st.markdown(f"""
         background-color: {card_bg}; border: 1px solid {border_color}; border-radius: 10px; padding: 15px 10px; text-align: center;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; gap: 2px;
     }}
-    .card-title {{ font-size: 12px; opacity: 0.7; margin-bottom: 2px; font-family: 'Kanit', sans-serif !important; }}
-    .card-price {{ font-size: 22px; font-weight: 600; line-height: 1.2; font-family: 'Kanit', sans-serif !important; }}
-    .card-unit  {{ font-size: 13px; opacity: 0.9; margin-bottom: 5px; font-family: 'Kanit', sans-serif !important; }}
-    .card-delta {{ font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 12px; display: inline-block; font-family: 'Kanit', sans-serif !important; }}
+    .card-title {{ font-size: 12px; opacity: 0.7; margin-bottom: 2px; }}
+    .card-price {{ font-size: 22px; font-weight: 600; line-height: 1.2; }}
+    .card-unit  {{ font-size: 13px; opacity: 0.9; margin-bottom: 5px; }}
+    .card-delta {{ font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 12px; display: inline-block; }}
     
     .delta-pos {{ color: #00cc66 !important; background: rgba(0,204,102,0.15); }}
     .delta-neg {{ color: #ff4d4d !important; background: rgba(255,77,77,0.15); }}
@@ -215,6 +203,7 @@ st.markdown(f"""
     .stChatInput {{ padding-bottom: 10px; z-index: 100; }}
     header[data-testid="stHeader"] {{ background: transparent; z-index: 100000; }}
     header .decoration {{ display: none; }}
+    button[kind="secondary"] {{ width: 100%; border: 1px solid {border_color}; color: {text_color} !important; }}
     
     @media (max-width: 600px) {{
         .gemini-bar {{ padding: 5px 10px 5px 65px; flex-direction: column; align-items: flex-start; justify-content: center; height: auto; min-height: 60px; }}
