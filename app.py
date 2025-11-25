@@ -40,6 +40,7 @@ def get_manual_data(data_type):
     source = ft_data if data_type == "ft" else pool_gas_data
     df = pd.DataFrame(source, columns=["Date", "Close"])
     df['Date'] = pd.to_datetime(df['Date']).dt.normalize()
+    
     today = pd.Timestamp.now().normalize()
     if df['Date'].max() < today:
         new_row = pd.DataFrame({"Date": [today], "Close": [None]})
@@ -64,7 +65,7 @@ ASSETS = {
 }
 PERIODS = {"1mo":30, "3mo":90, "6mo":180, "1y":365, "5y":1825, "Max":3650}
 
-# --- 4. SIDEBAR & DEFAULTS ---
+# --- 4. SIDEBAR ---
 st.sidebar.title("⚙️ Control Panel")
 with st.sidebar:
     is_dark = st.toggle("🌗 Dark Mode", value=False)
@@ -76,93 +77,108 @@ with st.sidebar:
     st.divider()
     sel_period = st.selectbox("⏳ Timeframe", list(PERIODS.keys()), index=4)
     st.divider()
-    
-    # [UPDATED] Defaults
-    is_usd_mode = st.toggle("🇺🇸 Show in USD", value=False)
-    is_norm = st.toggle("📏 Normalize (Max=1)", value=True) # Default True
-    
+    is_thb = st.toggle("🇺🇸 Show in USD", value=False)
+    # [FIX] Default Normalize = False
+    is_norm = st.toggle("📏 Normalize (Max=1)", value=False) 
     st.divider()
-    # [UPDATED] Default Selection (4 Items)
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (CUSTOM CARD + DARK MODE FIX) ---
+# --- 5. CSS (SUPER CONTRAST FIX) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
-text_color = "#ffffff" if is_dark else "#333333" # Force White text in dark mode
-card_bg = "#1e1e1e" if is_dark else "#f8f9fa" # Darker card for dark mode
+text_color = "#ffffff" if is_dark else "#333333"
+card_bg = "#1e1e1e" if is_dark else "#f8f9fa"
 border_color = "#444" if is_dark else "#e9ecef"
 topbar_bg = "#161b22" if is_dark else "#ffffff"
 
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap');
-    html, body, [class*="css"] {{ font-family: 'Prompt', sans-serif; color: {text_color}; overflow: hidden; }}
+    
+    /* Force Font & Text Color Globally */
+    html, body, [class*="css"], .stApp {{ 
+        font-family: 'Prompt', sans-serif; 
+        color: {text_color} !important; 
+        overflow: hidden; 
+    }}
+    
     .stApp {{ background-color: {bg_color}; }}
     
-    /* --- Custom Card Styling (4 Lines) --- */
-    .custom-card {{
-        background-color: {card_bg};
-        border: 1px solid {border_color};
-        border-radius: 10px;
-        padding: 15px 10px;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: 2px;
+    /* [FIX] Aggressive Text Coloring for Dark Mode */
+    /* บังคับหัวข้อ, ลาเบล, p, span ทุกอย่างให้เป็นสีตามธีม */
+    h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p {{
+        color: {text_color} !important;
     }}
-    .card-title {{ font-size: 12px; color: {text_color}; opacity: 0.7; font-weight: 400; margin-bottom: 2px; }}
-    .card-price {{ font-size: 22px; color: {text_color}; font-weight: 600; line-height: 1.2; }}
-    .card-unit  {{ font-size: 13px; color: {text_color}; opacity: 0.9; font-weight: 400; margin-bottom: 5px; }}
-    .card-delta {{ font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 12px; display: inline-block; }}
     
-    /* Delta Colors */
-    .delta-pos {{ color: #00cc66; background: rgba(0,204,102,0.1); }}
-    .delta-neg {{ color: #ff4d4d; background: rgba(255,77,77,0.1); }}
-    .delta-neu {{ color: #888; background: rgba(128,128,128,0.1); }}
+    /* Sidebar Specifics */
+    [data-testid="stSidebar"] {{
+        background-color: {bg_color};
+        border-right: 1px solid {border_color};
+    }}
+    [data-testid="stSidebar"] * {{
+        color: {text_color} !important;
+    }}
 
     /* Top Bar */
     .gemini-bar {{
         position: fixed; top: 0; left: 0; width: 100%; height: 60px;
         background: {topbar_bg}; border-bottom: 1px solid {border_color}; z-index: 99999;
         display: flex; align-items: center; justify-content: space-between;
-        padding: 0 200px 0 80px; color: {text_color}; font-weight: 600; font-size: 20px;
+        padding: 0 200px 0 80px;
+    }}
+    .gemini-bar span {{
+        color: {text_color} !important;
+        font-weight: 600; font-size: 20px;
     }}
     .date-badge {{ 
-        font-size: 14px; color: {text_color}; 
+        font-size: 14px; color: {text_color} !important; 
         background: {'#333' if is_dark else '#f1f3f4'}; 
         padding: 4px 12px; border-radius: 20px; font-weight: 400; border: 1px solid {border_color};
     }}
 
+    /* Sidebar Button */
     [data-testid="stSidebarCollapsedControl"] {{
         z-index: 100000 !important; background-color: {topbar_bg}; 
         border-radius: 50%; width: 40px; height: 40px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid {border_color}; 
         top: 10px !important; left: 15px !important;
         display: flex; align-items: center; justify-content: center;
-        color: {text_color};
+        color: {text_color} !important;
     }}
-    [data-testid="stSidebarCollapsedControl"] svg {{ display: none !important; }}
     [data-testid="stSidebarCollapsedControl"]::after {{ content: "⚙️"; font-size: 22px; margin-bottom: 3px; }}
-    [data-testid="stSidebarCollapsedControl"]:hover {{ transform: rotate(45deg); transition: transform 0.3s ease; opacity: 0.8; }}
 
-    @media (max-width: 600px) {{
-        .gemini-bar {{ padding: 5px 10px 5px 65px; flex-direction: column; align-items: flex-start; justify-content: center; height: auto; min-height: 60px; }}
-        .gemini-bar span:first-child {{ font-size: 18px; }}
-        .date-badge {{ font-size: 11px; margin-top: 2px; }}
-        .main .block-container {{ padding-top: 85px !important; }}
-        [data-testid="stSidebarCollapsedControl"] {{ top: 10px !important; left: 10px !important; width: 35px; height: 35px; }}
-    }}
-
+    /* Layout Adjustments */
     .main .block-container {{ padding: 70px 1rem 0 1rem !important; max-width: 100% !important; }}
     div[data-testid="column"]:nth-of-type(1) {{ height: calc(100vh - 80px); overflow: hidden; padding-right: 15px; border-right: 1px solid {border_color}; }}
     div[data-testid="column"]:nth-of-type(2) {{ height: calc(100vh - 80px); overflow-y: auto; padding-left: 15px; display: flex; flex-direction: column; justify-content: flex-end; }}
     
+    /* Custom Card */
+    .custom-card {{
+        background-color: {card_bg};
+        border: 1px solid {border_color};
+        border-radius: 10px; padding: 15px 10px; text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        display: flex; flex-direction: column; justify-content: center; gap: 2px;
+    }}
+    .card-title {{ font-size: 12px; color: {text_color} !important; opacity: 0.7; margin-bottom: 2px; }}
+    .card-price {{ font-size: 22px; color: {text_color} !important; font-weight: 600; line-height: 1.2; }}
+    .card-unit  {{ font-size: 13px; color: {text_color} !important; opacity: 0.9; margin-bottom: 5px; }}
+    .card-delta {{ font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 12px; display: inline-block; }}
+    
+    .delta-pos {{ color: #00cc66 !important; background: rgba(0,204,102,0.15); }}
+    .delta-neg {{ color: #ff4d4d !important; background: rgba(255,77,77,0.15); }}
+    .delta-neu {{ color: #aaa !important; background: rgba(128,128,128,0.15); }}
+
     .stChatInput {{ padding-bottom: 10px; z-index: 100; }}
     header[data-testid="stHeader"] {{ background: transparent; z-index: 100000; }}
     header .decoration {{ display: none; }}
-    button[kind="secondary"] {{ width: 100%; border: 1px solid {border_color}; color: {text_color}; }}
+    button[kind="secondary"] {{ width: 100%; border: 1px solid {border_color}; color: {text_color} !important; }}
+    
+    @media (max-width: 600px) {{
+        .gemini-bar {{ padding: 5px 10px 5px 65px; flex-direction: column; align-items: flex-start; justify-content: center; height: auto; min-height: 60px; }}
+        .date-badge {{ font-size: 11px; margin-top: 2px; }}
+        .main .block-container {{ padding-top: 85px !important; }}
+        [data-testid="stSidebarCollapsedControl"] {{ top: 10px !important; left: 10px !important; width: 35px; height: 35px; }}
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -176,7 +192,6 @@ with col_dash:
     st.subheader("สรุปภาพรวมตลาดวันนี้")
     thb_df = fetch_market_data("THB=X")
     
-    # 6.1 Custom Cards
     cols = st.columns(len(ASSETS))
     summary_text = f"Market Data ({display_date}):\n"
     for idx, (name, conf) in enumerate(ASSETS.items()):
@@ -200,16 +215,15 @@ with col_dash:
                     if not conf.get("is_ref"):
                         rate, _ = get_data_point(thb_df, p_date)
                         if rate:
-                            if is_usd_mode:
+                            if is_thb: # Show USD
                                 if conf['curr'] == "THB":
                                     price /= rate
                                     unit = unit.replace("Baht", "$").replace("บาท", "$")
-                            else:
+                            else: # Show THB (Default)
                                 if conf['curr'] == "USD":
                                     price *= rate
                                     unit = unit.replace("$", "Baht")
 
-                    # Build HTML Card
                     delta_class = "delta-pos" if pct > 0 else ("delta-neg" if pct < 0 else "delta-neu")
                     arrow = "▲" if pct > 0 else ("▼" if pct < 0 else "•")
                     
@@ -226,10 +240,8 @@ with col_dash:
                     card_html = f"""<div class="custom-card"><div class="card-title">{name}</div><div class="card-price">No Data</div></div>"""
             else:
                 card_html = f"""<div class="custom-card"><div class="card-title">{name}</div><div class="card-price">Error</div></div>"""
-            
             st.markdown(card_html, unsafe_allow_html=True)
 
-    # 6.2 Graph Logic
     if sel_assets:
         chart_data = []
         start_dt = (datetime.now() - timedelta(days=PERIODS[sel_period])).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -250,9 +262,9 @@ with col_dash:
                     thb_lookup = thb_clean.set_index('Date')['Close'].sort_index().ffill()
                     rates = thb_lookup.asof(sub['Date'])
                     
-                    if is_usd_mode:
+                    if is_thb: # USD Mode
                         if conf['curr'] == "THB": sub['Close'] = sub['Close'] / rates.values
-                    else:
+                    else: # THB Mode
                         if conf['curr'] == "USD": sub['Close'] = sub['Close'] * rates.values
                 
                 label = name
@@ -277,15 +289,17 @@ with col_dash:
             fig.update_traces(connectgaps=True)
             fig.add_vline(x=datetime.combine(target_date, datetime.min.time()).timestamp() * 1000, line_dash="dash", line_color="red")
             
+            # [FIX] Font Color for Chart
             fig.update_layout(
+                font=dict(color=text_color), # Force Chart Text Color
                 margin=dict(l=0, r=0, t=30, b=0), height=600, hovermode="x unified",
-                xaxis_title=None, yaxis_title="Normalized" if is_norm else ("Price (USD)" if is_usd_mode else "Price (THB)"),
+                xaxis_title=None, yaxis_title="Normalized" if is_norm else ("Price (USD)" if is_thb else "Price (THB)"),
                 legend=dict(orientation="h", y=1.02, x=1, xanchor="right"),
                 dragmode=False,
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
             )
-            fig.update_xaxes(fixedrange=True, range=[start_dt, datetime.now()])
-            fig.update_yaxes(fixedrange=True, range=[y_min - padding, y_max + padding])
+            fig.update_xaxes(fixedrange=True, range=[start_dt, datetime.now()], showgrid=False)
+            fig.update_yaxes(fixedrange=True, range=[y_min - padding, y_max + padding], showgrid=True, gridcolor=border_color)
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'scrollZoom': False, 'showTips': False})
     else: st.info("Select assets")
 
