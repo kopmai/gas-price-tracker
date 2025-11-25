@@ -9,53 +9,7 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Energy Tracker", layout="wide", page_icon="⚡", initial_sidebar_state="collapsed")
 API_KEY = st.secrets.get("GROQ_API_KEY", "")
 
-# --- 1. CSS ---
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap');
-    html, body, [class*="css"] { font-family: 'Prompt', sans-serif; color: #333; overflow: hidden; }
-    .stApp { background-color: #ffffff; }
-    
-    .gemini-bar {
-        position: fixed; top: 0; left: 0; width: 100%; height: 60px;
-        background: white; border-bottom: 1px solid #dadce0; z-index: 99999;
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 0 200px 0 80px; color: #1f1f1f; font-weight: 600; font-size: 20px;
-    }
-    .date-badge { font-size: 14px; color: #5f6368; background: #f1f3f4; padding: 4px 12px; border-radius: 20px; font-weight: 400; }
-
-    [data-testid="stSidebarCollapsedControl"] {
-        z-index: 100000 !important; background-color: white; border-radius: 50%; width: 40px; height: 40px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 1px solid #eee; top: 10px !important; left: 15px !important;
-        display: flex; align-items: center; justify-content: center;
-    }
-    [data-testid="stSidebarCollapsedControl"] svg { display: none !important; }
-    [data-testid="stSidebarCollapsedControl"]::after { content: "⚙️"; font-size: 22px; margin-bottom: 3px; }
-    [data-testid="stSidebarCollapsedControl"]:hover { transform: rotate(45deg); transition: transform 0.3s ease; background-color: #f1f3f4; }
-
-    @media (max-width: 600px) {
-        .gemini-bar { padding: 5px 10px 5px 65px; flex-direction: column; align-items: flex-start; justify-content: center; height: auto; min-height: 60px; }
-        .gemini-bar span:first-child { font-size: 18px; }
-        .date-badge { font-size: 11px; margin-top: 2px; }
-        .main .block-container { padding-top: 85px !important; }
-        [data-testid="stSidebarCollapsedControl"] { top: 10px !important; left: 10px !important; width: 35px; height: 35px; }
-    }
-
-    .main .block-container { padding: 70px 1rem 0 1rem !important; max-width: 100% !important; }
-    div[data-testid="column"]:nth-of-type(1) { height: calc(100vh - 80px); overflow: hidden; padding-right: 15px; border-right: 1px solid #f0f0f0; }
-    div[data-testid="column"]:nth-of-type(2) { height: calc(100vh - 80px); overflow-y: auto; padding-left: 15px; display: flex; flex-direction: column; justify-content: flex-end; }
-    
-    div[data-testid="stMetric"] { background: #f8f9fa; border: 1px solid #eee; padding: 8px; border-radius: 6px; text-align: center; }
-    div[data-testid="stMetricLabel"] { font-size: 14px !important; font-weight: 500; }
-    div[data-testid="stMetricValue"] { font-size: 18px !important; font-weight: 600; }
-    .stChatInput { padding-bottom: 10px; z-index: 100; }
-    header[data-testid="stHeader"] { background: transparent; z-index: 100000; }
-    header .decoration { display: none; }
-    button[kind="secondary"] { width: 100%; border: 1px solid #ddd; }
-</style>
-""", unsafe_allow_html=True)
-
-# --- 2. DATA ENGINE ---
+# --- 1. DATA ENGINE ---
 @st.cache_data(ttl=3600)
 def fetch_market_data(ticker):
     try:
@@ -86,12 +40,10 @@ def get_manual_data(data_type):
     source = ft_data if data_type == "ft" else pool_gas_data
     df = pd.DataFrame(source, columns=["Date", "Close"])
     df['Date'] = pd.to_datetime(df['Date']).dt.normalize()
-    
     today = pd.Timestamp.now().normalize()
     if df['Date'].max() < today:
         new_row = pd.DataFrame({"Date": [today], "Close": [None]})
         df = pd.concat([df, new_row], ignore_index=True)
-        
     idx = pd.date_range(start=df.Date.min(), end=today)
     df = df.set_index('Date').reindex(idx).ffill().reset_index().rename(columns={'index': 'Date'})
     return df
@@ -103,8 +55,6 @@ def get_data_point(df, target_date):
     return row['Close'], row['Date']
 
 # --- 3. CONFIG ---
-# curr: "THB" means native is THB, "USD" means native is USD
-# is_ref: True means it's the exchange rate itself (don't convert)
 ASSETS = {
     "ราคา Pool Gas (Thai)": {"type": "manual_pool", "ticker": "POOL", "unit": "Baht/MMBtu", "curr": "THB"},
     "ราคาตลาด JKM": {"type": "api", "ticker": "JKM=F", "unit": "$/MMBtu", "curr": "USD"},
@@ -114,7 +64,7 @@ ASSETS = {
 }
 PERIODS = {"1mo":30, "3mo":90, "6mo":180, "1y":365, "5y":1825, "Max":3650}
 
-# --- 4. SIDEBAR ---
+# --- 4. SIDEBAR & DEFAULTS ---
 st.sidebar.title("⚙️ Control Panel")
 with st.sidebar:
     is_dark = st.toggle("🌗 Dark Mode", value=False)
@@ -126,18 +76,21 @@ with st.sidebar:
     st.divider()
     sel_period = st.selectbox("⏳ Timeframe", list(PERIODS.keys()), index=4)
     st.divider()
-    # [UPDATED] Logic: Show USD? Default False (Show THB)
+    
+    # [UPDATED] Defaults
     is_usd_mode = st.toggle("🇺🇸 Show in USD", value=False)
-    is_norm = st.toggle("📏 Normalize (Max=1)", False)
+    is_norm = st.toggle("📏 Normalize (Max=1)", value=True) # Default True
+    
     st.divider()
-    sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM"])
+    # [UPDATED] Default Selection (4 Items)
+    sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. DYNAMIC CSS ---
+# --- 5. CSS (CUSTOM CARD + DARK MODE FIX) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
-text_color = "#fafafa" if is_dark else "#333333"
-card_bg = "#262730" if is_dark else "#f8f9fa"
-topbar_bg = "#1e1e1e" if is_dark else "#ffffff"
-border_color = "#444" if is_dark else "#dadce0"
+text_color = "#ffffff" if is_dark else "#333333" # Force White text in dark mode
+card_bg = "#1e1e1e" if is_dark else "#f8f9fa" # Darker card for dark mode
+border_color = "#444" if is_dark else "#e9ecef"
+topbar_bg = "#161b22" if is_dark else "#ffffff"
 
 st.markdown(f"""
 <style>
@@ -145,6 +98,31 @@ st.markdown(f"""
     html, body, [class*="css"] {{ font-family: 'Prompt', sans-serif; color: {text_color}; overflow: hidden; }}
     .stApp {{ background-color: {bg_color}; }}
     
+    /* --- Custom Card Styling (4 Lines) --- */
+    .custom-card {{
+        background-color: {card_bg};
+        border: 1px solid {border_color};
+        border-radius: 10px;
+        padding: 15px 10px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 2px;
+    }}
+    .card-title {{ font-size: 12px; color: {text_color}; opacity: 0.7; font-weight: 400; margin-bottom: 2px; }}
+    .card-price {{ font-size: 22px; color: {text_color}; font-weight: 600; line-height: 1.2; }}
+    .card-unit  {{ font-size: 13px; color: {text_color}; opacity: 0.9; font-weight: 400; margin-bottom: 5px; }}
+    .card-delta {{ font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 12px; display: inline-block; }}
+    
+    /* Delta Colors */
+    .delta-pos {{ color: #00cc66; background: rgba(0,204,102,0.1); }}
+    .delta-neg {{ color: #ff4d4d; background: rgba(255,77,77,0.1); }}
+    .delta-neu {{ color: #888; background: rgba(128,128,128,0.1); }}
+
+    /* Top Bar */
     .gemini-bar {{
         position: fixed; top: 0; left: 0; width: 100%; height: 60px;
         background: {topbar_bg}; border-bottom: 1px solid {border_color}; z-index: 99999;
@@ -181,10 +159,6 @@ st.markdown(f"""
     div[data-testid="column"]:nth-of-type(1) {{ height: calc(100vh - 80px); overflow: hidden; padding-right: 15px; border-right: 1px solid {border_color}; }}
     div[data-testid="column"]:nth-of-type(2) {{ height: calc(100vh - 80px); overflow-y: auto; padding-left: 15px; display: flex; flex-direction: column; justify-content: flex-end; }}
     
-    div[data-testid="stMetric"] {{ background: {card_bg}; border: 1px solid {border_color}; padding: 8px; border-radius: 6px; text-align: center; }}
-    div[data-testid="stMetricLabel"] {{ font-size: 14px !important; font-weight: 500; color: {text_color}; opacity: 0.8; }}
-    div[data-testid="stMetricValue"] {{ font-size: 18px !important; font-weight: 600; color: {text_color}; }}
-    
     .stChatInput {{ padding-bottom: 10px; z-index: 100; }}
     header[data-testid="stHeader"] {{ background: transparent; z-index: 100000; }}
     header .decoration {{ display: none; }}
@@ -202,15 +176,16 @@ with col_dash:
     st.subheader("สรุปภาพรวมตลาดวันนี้")
     thb_df = fetch_market_data("THB=X")
     
+    # 6.1 Custom Cards
     cols = st.columns(len(ASSETS))
     summary_text = f"Market Data ({display_date}):\n"
-    
     for idx, (name, conf) in enumerate(ASSETS.items()):
         if conf["type"] == "manual_ft": df = get_manual_data("ft")
         elif conf["type"] == "manual_pool": df = get_manual_data("pool")
         else: df = fetch_market_data(conf["ticker"])
         
         with cols[idx]:
+            card_html = ""
             if df is not None:
                 price, p_date = get_data_point(df, target_date)
                 if price is not None and not pd.isna(price):
@@ -222,30 +197,39 @@ with col_dash:
                     except: pct = 0
                     
                     unit = conf['unit']
-                    
-                    # [LOGIC UPDATED] Default = THB, Toggle = USD
-                    # ข้ามการแปลงถ้าเป็น Ref (อัตราแลกเปลี่ยน)
                     if not conf.get("is_ref"):
                         rate, _ = get_data_point(thb_df, p_date)
                         if rate:
                             if is_usd_mode:
-                                # โหมด USD: ถ้าของเดิมเป็น THB -> หาร Rate
                                 if conf['curr'] == "THB":
                                     price /= rate
                                     unit = unit.replace("Baht", "$").replace("บาท", "$")
-                                # ถ้าของเดิมเป็น USD -> ไม่ต้องทำอะไร
                             else:
-                                # โหมด THB (Default): ถ้าของเดิมเป็น USD -> คูณ Rate
                                 if conf['curr'] == "USD":
                                     price *= rate
                                     unit = unit.replace("$", "Baht")
-                                # ถ้าของเดิมเป็น THB -> ไม่ต้องทำอะไร
 
-                    st.metric(name, f"{price:,.2f} {unit}", f"{pct:+.2f}% (1D)")
+                    # Build HTML Card
+                    delta_class = "delta-pos" if pct > 0 else ("delta-neg" if pct < 0 else "delta-neu")
+                    arrow = "▲" if pct > 0 else ("▼" if pct < 0 else "•")
+                    
+                    card_html = f"""
+                    <div class="custom-card">
+                        <div class="card-title">{name}</div>
+                        <div class="card-price">{price:,.2f}</div>
+                        <div class="card-unit">{unit}</div>
+                        <div><span class="card-delta {delta_class}">{arrow} {pct:+.2f}% (1D)</span></div>
+                    </div>
+                    """
                     summary_text += f"- {name}: {price:.2f} {unit}\n"
-                else: st.metric(name, "No Data", "-")
-            else: st.metric(name, "Error", "-")
+                else:
+                    card_html = f"""<div class="custom-card"><div class="card-title">{name}</div><div class="card-price">No Data</div></div>"""
+            else:
+                card_html = f"""<div class="custom-card"><div class="card-title">{name}</div><div class="card-price">Error</div></div>"""
+            
+            st.markdown(card_html, unsafe_allow_html=True)
 
+    # 6.2 Graph Logic
     if sel_assets:
         chart_data = []
         start_dt = (datetime.now() - timedelta(days=PERIODS[sel_period])).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -260,21 +244,16 @@ with col_dash:
                 sub = df[df['Date'] >= start_dt].copy()
                 sub['Date'] = pd.to_datetime(sub['Date']).dt.tz_localize(None)
                 
-                # [LOGIC UPDATED] Graph Conversion
                 if not conf.get("is_ref") and thb_df is not None:
                     thb_clean = thb_df.copy()
                     thb_clean['Date'] = pd.to_datetime(thb_clean['Date']).dt.tz_localize(None)
                     thb_lookup = thb_clean.set_index('Date')['Close'].sort_index().ffill()
-                    
-                    # หา Rate
                     rates = thb_lookup.asof(sub['Date'])
                     
                     if is_usd_mode:
-                        if conf['curr'] == "THB":
-                            sub['Close'] = sub['Close'] / rates.values
+                        if conf['curr'] == "THB": sub['Close'] = sub['Close'] / rates.values
                     else:
-                        if conf['curr'] == "USD":
-                            sub['Close'] = sub['Close'] * rates.values
+                        if conf['curr'] == "USD": sub['Close'] = sub['Close'] * rates.values
                 
                 label = name
                 if is_norm:
