@@ -23,6 +23,7 @@ def fetch_market_data(ticker):
 
 @st.cache_data(ttl=3600)
 def get_manual_data(data_type):
+    # 1.1 FT Data (บาท/หน่วย) - ข้อมูลเดิม
     ft_data = [
         ("2021-01-01", -0.1532), ("2021-05-01", -0.1532), ("2021-09-01", -0.1532),
         ("2022-01-01", 0.0139),  ("2022-05-01", 0.2477),  ("2022-09-01", 0.9343),
@@ -30,13 +31,64 @@ def get_manual_data(data_type):
         ("2024-01-01", 0.3972),  ("2024-05-01", 0.3972),  ("2024-09-01", 0.3972),
         ("2025-01-01", 0.3672),  ("2025-05-01", 0.1972),  ("2025-09-01", 0.1572)
     ]
+    
+    # 1.2 Pool Gas Data (บาท/MMBtu) - Template รายเดือน (2565-2568)
+    # [ACTION REQUIRED] ฝากคุณเติมตัวเลขจริงแทน 0.0 ตรงนี้ครับ
     pool_gas_data = [
-        ("2021-01-01", 216.00), ("2021-05-01", 225.50), ("2021-09-01", 280.00),
-        ("2022-01-01", 350.00), ("2022-05-01", 400.50), ("2022-09-01", 560.00),
-        ("2023-01-01", 438.28), ("2023-05-01", 389.00), ("2023-09-01", 304.79),
-        ("2024-01-01", 318.25), ("2024-05-01", 309.00), ("2024-09-01", 297.00),
-        ("2025-01-01", 301.00), ("2025-05-01", 300.29), ("2025-10-01", 270.10)
+        # --- ปี 2565 (2022) ---
+        ("2022-04-01", 485.3714), # เม.ย. 65
+        ("2022-05-01", 359.6854), # พ.ค. 65
+        ("2022-06-01", 402.8732), # มิ.ย. 65
+        ("2022-07-01", 431.1355), # ก.ค. 65
+        ("2022-08-01", 553.5309), # ส.ค. 65
+        ("2022-09-01", 670.4336), # ก.ย. 65
+        ("2022-10-01", 555.7805), # ต.ค. 65
+        ("2022-11-01", 469.4005), # พ.ย. 65
+        ("2022-12-01", 429.0144), # ธ.ค. 65
+
+        # --- ปี 2566 (2023) ---
+        ("2023-01-01", 438.2827), # ม.ค. 66
+        ("2023-02-01", 501.3326), # ก.พ. 66
+        ("2023-03-01", 508.3987), # มี.ค. 66
+        ("2023-04-01", 434.5766), # เม.ย. 66
+        ("2023-05-01", 345.1202), # พ.ค. 66
+        ("2023-06-01", 342.0714), # มิ.ย. 66
+        ("2023-07-01", 325.9624), # ก.ค. 66
+        ("2023-08-01", 333.4681), # ส.ค. 66
+        ("2023-09-01", 356.5971), # ก.ย. 66
+        ("2023-10-01", 355.5069), # ต.ค. 66
+        ("2023-11-01", 351.5559), # พ.ย. 66
+        ("2023-12-01", 369.3131), # ธ.ค. 66
+
+        # --- ปี 2567 (2024) ---
+        ("2024-01-01", 318.2547), # ม.ค. 67
+        ("2024-02-01", 347.4511), # ก.พ. 67
+        ("2024-03-01", 299.3254), # มี.ค. 67
+        ("2024-04-01", 292.3719), # เม.ย. 67
+        ("2024-05-01", 300.1624), # พ.ค. 67
+        ("2024-06-01", 309.0391), # มิ.ย. 67
+        ("2024-07-01", 321.8443), # ก.ค. 67
+        ("2024-08-01", 321.1205), # ส.ค. 67
+        ("2024-09-01", 301.1360), # ก.ย. 67
+        ("2024-10-01", 287.1386), # ต.ค. 67
+        ("2024-11-01", 297.0934), # พ.ย. 67
+        ("2024-12-01", 308.2371), # ธ.ค. 67
+
+        # --- ปี 2568 (2025) ---
+        ("2025-01-01", 313.5635), # ม.ค. 68
+        ("2025-02-01", 315.9131), # ก.พ. 68
+        ("2025-03-01", 308.1177), # มี.ค. 68
+        ("2025-04-01", 311.9638), # เม.ย. 68
+        ("2025-05-01", 300.2913), # พ.ค. 68
+        ("2025-06-01", 283.6056), # มิ.ย. 68
+        ("2025-07-01", 277.3120), # ก.ค. 68
+        ("2025-08-01", 282.0855), # ส.ค. 68
+        ("2025-09-01", 278.7773), # ก.ย. 68
+        ("2025-10-01", 270.1003), # ต.ค. 68
+        ("2025-11-01", 270.1003), # พ.ย. 68
+        ("2025-12-01", 270.1003), # ธ.ค. 68
     ]
+    
     source = ft_data if data_type == "ft" else pool_gas_data
     df = pd.DataFrame(source, columns=["Date", "Close"])
     df['Date'] = pd.to_datetime(df['Date']).dt.normalize()
@@ -81,7 +133,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (STANDARD FONT - CLEAN & STABLE) ---
+# --- 5. CSS (STANDARD FONT) ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
@@ -91,15 +143,15 @@ input_bg = "#262730" if is_dark else "#ffffff"
 
 st.markdown(f"""
 <style>
-    /* Standard Font Settings (System Default) */
+    /* Standard Font */
     html, body, [class*="css"], .stApp {{ 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol" !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
         color: {text_color} !important; 
         overflow: hidden; 
     }}
     .stApp {{ background-color: {bg_color}; }}
     
-    /* --- Dropdown & Calendar Fixes (Dark Mode) --- */
+    /* Dropdown & Calendar */
     div[data-baseweb="popover"] > div, div[data-baseweb="menu"], ul[data-baseweb="menu"] {{
         background-color: {input_bg} !important; border: 1px solid {border_color};
     }}
@@ -113,10 +165,8 @@ st.markdown(f"""
     div[data-baseweb="calendar"] div {{ color: {text_color} !important; }}
     div[data-baseweb="calendar"] div[aria-label]:hover {{ background-color: #ff4b4b !important; color: white !important; cursor: pointer; }}
 
-    /* Sidebar Styling */
+    /* Sidebar */
     section[data-testid="stSidebar"] {{ background-color: {bg_color} !important; border-right: 1px solid {border_color}; }}
-    
-    /* Reset Button */
     [data-testid="stSidebar"] button {{
         background-color: {input_bg} !important; color: {text_color} !important; border: 1px solid {border_color} !important; width: 100%;
     }}
@@ -131,9 +181,6 @@ st.markdown(f"""
     .stDateInput input {{ color: {text_color} !important; }}
     [data-testid="stCheckbox"] label {{ opacity: 1 !important; font-weight: 500; }}
     div[data-testid="stChatMessage"] * {{ color: {text_color} !important; }}
-    
-    /* Global Text */
-    h1, h2, h3, h4, h5, h6, p, label, span, li, div {{ color: {text_color} !important; }}
 
     /* Top Bar */
     .gemini-bar {{
