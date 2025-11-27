@@ -23,7 +23,6 @@ def fetch_market_data(ticker):
 
 @st.cache_data(ttl=3600)
 def get_manual_data(data_type):
-    # 1.1 FT Data (บาท/หน่วย) - ข้อมูลเดิม
     ft_data = [
         ("2021-01-01", -0.1532), ("2021-05-01", -0.1532), ("2021-09-01", -0.1532),
         ("2022-01-01", 0.0139),  ("2022-05-01", 0.2477),  ("2022-09-01", 0.9343),
@@ -32,8 +31,7 @@ def get_manual_data(data_type):
         ("2025-01-01", 0.3672),  ("2025-05-01", 0.1972),  ("2025-09-01", 0.1572)
     ]
     
-    # 1.2 Pool Gas Data (บาท/MMBtu) - Template รายเดือน (2565-2568)
-    # [ACTION REQUIRED] ฝากคุณเติมตัวเลขจริงแทน 0.0 ตรงนี้ครับ
+    # [UPDATED] Real Pool Gas Data (Baht/MMBtu)
     pool_gas_data = [
         # --- ปี 2565 (2022) ---
         ("2022-04-01", 485.3714), # เม.ย. 65
@@ -85,17 +83,19 @@ def get_manual_data(data_type):
         ("2025-08-01", 282.0855), # ส.ค. 68
         ("2025-09-01", 278.7773), # ก.ย. 68
         ("2025-10-01", 270.1003), # ต.ค. 68
-        ("2025-11-01", 270.1003), # พ.ย. 68
-        ("2025-12-01", 270.1003), # ธ.ค. 68
+        ("2025-11-01", 270.1003), # พ.ย. 68 (Forecast same as Oct)
+        ("2025-12-01", 270.1003), # ธ.ค. 68 (Forecast same as Oct)
     ]
     
     source = ft_data if data_type == "ft" else pool_gas_data
     df = pd.DataFrame(source, columns=["Date", "Close"])
     df['Date'] = pd.to_datetime(df['Date']).dt.normalize()
+    
     today = pd.Timestamp.now().normalize()
     if df['Date'].max() < today:
         new_row = pd.DataFrame({"Date": [today], "Close": [None]})
         df = pd.concat([df, new_row], ignore_index=True)
+    
     idx = pd.date_range(start=df.Date.min(), end=today)
     df = df.set_index('Date').reindex(idx).ffill().reset_index().rename(columns={'index': 'Date'})
     return df
@@ -133,7 +133,7 @@ with st.sidebar:
     st.divider()
     sel_assets = st.multiselect("Compare:", list(ASSETS.keys()), default=["ราคา Pool Gas (Thai)", "ราคาตลาด JKM", "อัตราแลกเปลี่ยน (USD/THB)", "ค่าไฟฟ้าผันแปร (Ft)"])
 
-# --- 5. CSS (STANDARD FONT) ---
+# --- 5. CSS ---
 bg_color = "#0e1117" if is_dark else "#ffffff"
 text_color = "#ffffff" if is_dark else "#333333" 
 card_bg = "#1e1e1e" if is_dark else "#f8f9fa" 
